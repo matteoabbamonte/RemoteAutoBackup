@@ -1,7 +1,3 @@
-//
-// Created by matte on 20/09/2020.
-//
-
 #include "DirectoryWatcher.h"
 
 DirectoryWatcher::DirectoryWatcher(std::string path_to_watch, std::chrono::duration<int, std::milli> delay)

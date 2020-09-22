@@ -10,6 +10,7 @@
 #include <boost/filesystem.hpp>
 #include <thread>
 #include <iostream>
+#include <unordered_map>
 
 enum class FileStatus {created, modified, erased};
 
