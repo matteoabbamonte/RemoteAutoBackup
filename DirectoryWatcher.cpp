@@ -8,8 +8,9 @@ DirectoryWatcher::DirectoryWatcher(std::string path_to_watch, std::chrono::durat
         : path_to_watch{std::move(path_to_watch)}, delay{delay} {
     for (boost::filesystem::directory_entry &element : boost::filesystem::recursive_directory_iterator(
             this->path_to_watch)) {
-        paths_[element.path().string()] = {boost::filesystem::last_write_time(element),
-                                           boost::filesystem::is_regular_file(element)};
+        if (element.path().filename().string().find(".",0) != 0)
+            paths_[element.path().string()] = {boost::filesystem::last_write_time(element),
+                                               boost::filesystem::is_regular_file(element)};
     }
 }
 
@@ -28,15 +29,17 @@ void DirectoryWatcher::start(const std::function<void (std::string, FileStatus, 
 
         // Check if a file was created or modified
         for (boost::filesystem::directory_entry& element : boost::filesystem::recursive_directory_iterator(path_to_watch)) {
-            auto current_file_last_write_time = boost::filesystem::last_write_time(element);
-            //Element creation
-            if (paths_.find(element.path().string()) == paths_.end()) {
-                paths_[element.path().string()] = {current_file_last_write_time, boost::filesystem::is_regular_file(element)};
-                action(element.path().string(), FileStatus::created, boost::filesystem::is_regular_file(element));
-                //Element modification
-            } else if (paths_[element.path().string()].lastEdit != current_file_last_write_time) {
-                paths_[element.path().string()] = {current_file_last_write_time, boost::filesystem::is_regular_file(element)};
-                action(element.path().string(), FileStatus::modified, boost::filesystem::is_regular_file(element));
+            if (element.path().filename().string().find(".",0) != 0) {
+                auto current_file_last_write_time = boost::filesystem::last_write_time(element);
+                //Element creation
+                if (paths_.find(element.path().string()) == paths_.end()) {
+                    paths_[element.path().string()] = {current_file_last_write_time, boost::filesystem::is_regular_file(element)};
+                    action(element.path().string(), FileStatus::created, boost::filesystem::is_regular_file(element));
+                    //Element modification
+                } else if (paths_[element.path().string()].lastEdit != current_file_last_write_time) {
+                    paths_[element.path().string()] = {current_file_last_write_time, boost::filesystem::is_regular_file(element)};
+                    action(element.path().string(), FileStatus::modified, boost::filesystem::is_regular_file(element));
+                }
             }
         }
     }
