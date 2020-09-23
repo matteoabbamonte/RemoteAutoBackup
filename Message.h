@@ -6,6 +6,9 @@
 
 class Message {
     boost::property_tree::ptree pt;
+    std::vector<char> message;
+    char *size = new char[4];   // 4B dim int
+    char *msg_ptr;
 
 public:
 
@@ -13,22 +16,22 @@ public:
 
     void encode_data(std::string& data);
 
-    std::vector<char> zip_message();
+    void zip_message();
 
-    //to be defined...
+    char* get_pointer();
 
-    void encode_action();
+    std::size_t get_msg_length();
 
-    void encode_data();
+    char* get_size();
 
-    /*bool decode_action() {
-        std::stringstream stream;
-        stream << input.get();
-        boost::property_tree::ptree pt;
-        boost::property_tree::json_parser::read_json(stream, pt);
-        this->key = pt.get<std::string>("key");
-        this->value = pt.get<V>("value");
-        this->acc = pt.get<A>("acc");
-    }*/
+    char* get_msg_ptr();
+
+    bool decode_size();
+
+    void decode_message();
+
+    std::string get_action();
+
+    std::vector<char> get_data();
 
 };
