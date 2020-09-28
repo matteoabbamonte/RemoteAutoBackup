@@ -7,10 +7,13 @@
 class Message {
     boost::property_tree::ptree pt;
     std::vector<char> message;
-    char *size = new char[4];   // 4B dim int
+    char *size;   // 4B dim int
     char *msg_ptr;
 
 public:
+    Message();
+
+    virtual ~Message();
 
     void encode_action(std::string& action);
 
@@ -22,9 +25,11 @@ public:
 
     std::size_t get_msg_length();
 
-    char* get_size();
+    char* get_size_ptr();   //get pointer to the beginning of the size buffer
 
-    char* get_msg_ptr();
+    char* get_msg_ptr();    //get pointer to the beginning of the message buffer
+
+    int get_size_int();     //get the size as int
 
     bool decode_size();
 
@@ -32,6 +37,6 @@ public:
 
     std::string get_action();
 
-    std::vector<char> get_data();
+    std::string get_data();
 
 };
