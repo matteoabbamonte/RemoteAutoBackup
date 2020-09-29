@@ -49,3 +49,25 @@ void Session::do_read_body() {
                                 }
                             });
 }
+
+void do_write() {
+    auto self(std::shared_ptr<Session>(this));
+    boost::asio::async_write(socket_,
+                             boost::asio::buffer(write_queue_.front().get_msg_ptr(),
+                                                 write_queue_.front().get_size_int()),
+                             [this, self](boost::system::error_code ec, std::size_t /*length*/)
+                             {
+                                 if (!ec)
+                                 {
+                                     write_queue_.pop_front();
+                                     if (!write_queue_.empty())
+                                     {
+                                         do_write();
+                                     }
+                                 }
+                                 else
+                                 {
+                                     std::cout << ec.message() << std::endl;
+                                 }
+                             });
+}
