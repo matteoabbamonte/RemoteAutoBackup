@@ -50,7 +50,7 @@ void Session::do_read_body() {
                             });
 }
 
-void do_write() {
+void Session::do_write() {
     auto self(std::shared_ptr<Session>(this));
     boost::asio::async_write(socket_,
                              boost::asio::buffer(write_queue_.front().get_msg_ptr(),
