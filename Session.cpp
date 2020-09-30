@@ -2,8 +2,6 @@
 
 Session::Session(boost::asio::io_context& io_context) : socket_(io_context) {}
 
-void Session::handle_write(const boost::system::error_code& /*error*/, size_t /*bytes_transferred*/) {}
-
 Session::pointer Session::create(boost::asio::io_context& io_context) {
     return Session::pointer(new Session(io_context));
 }
@@ -29,25 +27,27 @@ void Session::do_read_size() {
                             });
 }
 
-void Session::do_read_body() {
+std::tuple<std::string, std::string> Session::do_read_body() {
     auto self(std::shared_ptr<Session>(this));
+    std::tuple<std::string, std::string> action_data;
     boost::asio::async_read(socket_,
                             boost::asio::buffer(read_msg_.get_msg_ptr(), read_msg_.get_size_int()),
-                            [this, self](boost::system::error_code ec, std::size_t /*length*/)
+                            [this, self, &action_data](boost::system::error_code ec, std::size_t /*length*/)
                             {
                                 if (!ec)
                                 {
                                     read_msg_.decode_message();
                                     std::string action = read_msg_.get_action();
                                     std::string data = read_msg_.get_data();
-
-                                    do_read_size();
+                                    action_data = std::tuple<std::string, std::string>({action, data});
+                                    //do_read_size();
                                 }
                                 else
                                 {
                                     std::cout << ec.message() << std::endl;
                                 }
                             });
+    return action_data;
 }
 
 void Session::do_write() {
@@ -70,4 +70,8 @@ void Session::do_write() {
                                      std::cout << ec.message() << std::endl;
                                  }
                              });
+}
+
+void Session::enqueue_msg(const Message &msg) {
+    write_queue_.emplace_back(msg);
 }
