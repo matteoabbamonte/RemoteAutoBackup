@@ -6,8 +6,14 @@
 #include <mutex>
 #include <condition_variable>
 
+typedef struct Client_Action_Data {
+    std::string username;
+    std::string action;
+    std::string data;
+};
+
 class OperationsQueue {
-    std::queue<std::tuple<std::string, std::string>> opQueue;
+    std::queue<Client_Action_Data> opQueue;
     std::mutex m;
     std::condition_variable cv_full;
     std::condition_variable cv_empty;
@@ -16,8 +22,8 @@ class OperationsQueue {
 public:
     OperationsQueue(int size);
 
-    void push_operation(std::string action, std::string data);
+    void push_operation(std::string username, std::string action, std::string data);
 
-    std::tuple<std::string, std::string> pop_operation();
+    Client_Action_Data pop_operation();
 
 };
