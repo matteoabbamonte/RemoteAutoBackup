@@ -39,4 +39,6 @@ public:
 
     std::string get_data();
 
+    std::tuple<std::string, std::string> get_credentials();
+
 };

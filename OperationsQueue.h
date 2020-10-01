@@ -20,7 +20,7 @@ class OperationsQueue {
     int max_size;
 
 public:
-    OperationsQueue(int size);
+    explicit OperationsQueue(int size);
 
     void push_operation(std::string username, std::string action, std::string data);
 

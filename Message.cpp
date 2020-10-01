@@ -63,8 +63,17 @@ std::string Message::get_data() {
     return pt.get<std::string>("data");
 }
 
+std::tuple<std::string, std::string> Message::get_credentials() {
+    auto credentials_str = pt.get<std::string>("data");
+    int separator_pos = credentials_str.find("||");
+    auto username = credentials_str.substr(0, separator_pos);
+    auto password = credentials_str.substr(separator_pos+2);
+    return std::tuple<std::string, std::string>(username, password);
+}
+
 Message::~Message() {
     delete [] size;
     delete [] msg_ptr;
 }
+
 
