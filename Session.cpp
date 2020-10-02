@@ -1,13 +1,14 @@
 #include "Session.h"
+#include <sqlite3.h>
 
 Session::Session(boost::asio::io_context& io_context) : socket_(io_context) {}
 
-Session::pointer Session::create(boost::asio::io_context& io_context) {
-    return Session::pointer(new Session(io_context));
-}
-
 boost::asio::ip::tcp::socket& Session::socket() {
     return socket_;
+}
+
+void Session::start(OperationsQueue & queue) {
+    do_read_size(queue);
 }
 
 void Session::do_read_size(OperationsQueue & queue) {
@@ -41,6 +42,14 @@ void Session::do_read_body(OperationsQueue & queue) {
                                     std::string data = read_msg_.get_data();
                                     //if action == login then read data, take username and password, check db and insert username in clients map
                                     if (action == "l") {
+                                        auto credentials = read_msg_.get_credentials();
+                                        bool found = Session::check_database(std::get<0>(credentials),std::get<1>(credentials));
+                                        if (found) {
+                                            
+                                            std::cout << "found" << std::endl;
+                                        }
+                                        else
+                                            std::cout << "not found" << std::endl;
 
                                     } else {
                                         //queue.push_operation();
@@ -78,4 +87,26 @@ void Session::do_write() {
 
 void Session::enqueue_msg(const Message &msg) {
     write_queue_.emplace_back(msg);
+}
+
+bool Session::check_database(std::string username, std::string password) {
+    sqlite3* conn;
+    int count = 0;
+    if (sqlite3_open("Clients.sqlite", &conn) == SQLITE_OK) {
+        std::string sqlStatement = "SELECT COUNT(*) FROM client WHERE username = '" + username
+                + "' AND password = '" + password + "';";
+        sqlite3_stmt *statement;
+
+        if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, NULL) == SQLITE_OK) {
+            while( sqlite3_step(statement) == SQLITE_ROW ) {
+                count = sqlite3_column_int(statement, 0);
+            }
+        }
+        else {
+            std::cout << "Database Connection Error" << std::endl;
+        }
+        sqlite3_finalize(statement);
+        sqlite3_close(conn);
+    }
+    return count;
 }

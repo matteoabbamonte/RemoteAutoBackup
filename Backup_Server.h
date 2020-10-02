@@ -6,9 +6,14 @@
 using pClient = std::shared_ptr<Client>;
 using boost::asio::ip::tcp;
 
+typedef struct pClient_username {
+    pClient client_ptr;
+    std::string username;
+};
+
 class Backup_Server {
     tcp::acceptor acceptor;
-    std::map<tcp::socket, pClient> clients;
+    std::map<tcp::socket, pClient_username> clients;
 
     void do_accept();
 
