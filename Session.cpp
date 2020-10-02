@@ -1,25 +1,32 @@
 #include "Session.h"
-#include <sqlite3.h>
 
-Session::Session(boost::asio::io_context& io_context) : socket_(io_context) {}
+void Common_Session::push(tcp::socket socket, const pClient_username& ptr_user) {
+    clients[socket] = ptr_user;
+}
+
+Common_Session::Common_Session() {
+
+}
+
+Session::Session(tcp::socket socket) : socket_(std::move(socket)) {}
 
 boost::asio::ip::tcp::socket& Session::socket() {
     return socket_;
 }
 
-void Session::start(OperationsQueue & queue) {
-    do_read_size(queue);
+void Session::start() {
+    do_read_size();
 }
 
-void Session::do_read_size(OperationsQueue & queue) {
+void Session::do_read_size() {
     auto self(std::shared_ptr<Session>(this));
     boost::asio::async_read(socket_,
                             boost::asio::buffer(read_msg_.get_size_ptr(), sizeof(int)),
-                            [this, self, &queue](boost::system::error_code ec, std::size_t /*length*/)
+                            [this, self](boost::system::error_code ec, std::size_t /*length*/)
                             {
                                 if (!ec && read_msg_.decode_size())
                                 {
-                                    do_read_body(queue);
+                                    do_read_body();
                                 }
                                 else
                                 {
@@ -28,12 +35,12 @@ void Session::do_read_size(OperationsQueue & queue) {
                             });
 }
 
-void Session::do_read_body(OperationsQueue & queue) {
+void Session::do_read_body() {
     auto self(std::shared_ptr<Session>(this));
     std::tuple<std::string, std::string> action_data;
     boost::asio::async_read(socket_,
                             boost::asio::buffer(read_msg_.get_msg_ptr(), read_msg_.get_size_int()),
-                            [this, self, &queue](boost::system::error_code ec, std::size_t /*length*/)
+                            [this, self](boost::system::error_code ec, std::size_t /*length*/)
                             {
                                 if (!ec)
                                 {

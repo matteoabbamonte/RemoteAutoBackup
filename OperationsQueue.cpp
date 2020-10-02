@@ -1,6 +1,6 @@
 #include "OperationsQueue.h"
 
-#include <utility>
+OperationsQueue::OperationsQueue() : max_size(10) {}
 
 OperationsQueue::OperationsQueue(int size) : max_size(size) {}
 

@@ -1,12 +1,14 @@
 #include <boost/asio/thread_pool.hpp>
 #include "Backup_Server.h"
+#include "Session.h"
 
 void Backup_Server::do_accept() {
     acceptor.async_accept(
             [this](boost::system::error_code ec, tcp::socket socket)
             {
                 if (!ec) {
-                    clients[socket] = {pClient(new Client()), " "};
+                    commonSession.push(socket, {pClient(new Client()), ""});
+                    std::make_shared<Session>(socket)->start();
                 }
                 do_accept();
             });
@@ -16,9 +18,7 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
     boost::asio::thread_pool pool;
     boost::asio::post(pool, [this](){
         while (true) {
-            for (auto it = clients.begin(); it != clients.end(); it++) {
 
-            }
             break;
         }
     });

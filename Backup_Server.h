@@ -3,17 +3,11 @@
 #include <boost/asio/ip/tcp.hpp>
 #include "Client.h"
 
-using pClient = std::shared_ptr<Client>;
 using boost::asio::ip::tcp;
-
-typedef struct pClient_username {
-    pClient client_ptr;
-    std::string username;
-};
 
 class Backup_Server {
     tcp::acceptor acceptor;
-    std::map<tcp::socket, pClient_username> clients;
+    Common_Session commonSession;
 
     void do_accept();
 
