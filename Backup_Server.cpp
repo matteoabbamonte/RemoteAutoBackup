@@ -1,6 +1,6 @@
 #include <boost/asio/thread_pool.hpp>
 #include "Backup_Server.h"
-#include "Session.h"
+#include "Server_Session.h"
 
 void Backup_Server::do_accept() {
     acceptor.async_accept(
@@ -8,7 +8,7 @@ void Backup_Server::do_accept() {
             {
                 if (!ec) {
                     commonSession.push(socket, {pClient(new Client()), ""});
-                    std::make_shared<Session>(socket)->start();
+                    std::make_shared<Server_Session>(socket)->start();
                 }
                 do_accept();
             });

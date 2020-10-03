@@ -7,7 +7,7 @@
 #include "Message.h"
 #include "OperationsQueue.h"
 #include "Client.h"
-#include <sqlite3>
+#include <sqlite3.h>
 
 using boost::asio::ip::tcp;
 typedef std::deque<Message> WriteMsgs;
@@ -20,26 +20,32 @@ typedef struct pClient_username {
 
 class Common_Session {
     std::map<tcp::socket, pClient_username> clients;
+
+protected:
     OperationsQueue operationsQueue;
+
 public:
-    void push(tcp::socket, const pClient_username& ptr_user);
-
-
-
     Common_Session();
+
+    void push(tcp::socket &socket, const pClient_username& ptr_user);
+
+    void push_username (tcp::socket &socket, const std::string username);
+
+    void delete_client(tcp::socket &socket);
+
 };
 
-class Session : Common_Session {
-    boost::asio::ip::tcp::socket socket_;
+class Server_Session : Common_Session {
+    tcp::socket socket_;
     Message read_msg_;
     WriteMsgs write_queue_;
 
 public:
-    Session(tcp::socket socket);
+    Server_Session(tcp::socket &socket);
 
     void start();
 
-    boost::asio::ip::tcp::socket& socket();
+    tcp::socket& socket();
 
 
 private:

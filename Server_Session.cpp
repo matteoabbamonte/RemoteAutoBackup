@@ -1,25 +1,36 @@
-#include "Session.h"
+#include "Server_Session.h"
 
-void Common_Session::push(tcp::socket socket, const pClient_username& ptr_user) {
+void Common_Session::push(tcp::socket &socket, const pClient_username& ptr_user) {
     clients[socket] = ptr_user;
 }
 
-Common_Session::Common_Session() {
-
+void Common_Session::push_username (tcp::socket &socket, const std::string username) {
+    auto ptr_user = clients.find(socket);
+    if (ptr_user != clients.end()) {
+        clients[socket] = {ptr_user->second.client_ptr, username};
+    }
 }
 
-Session::Session(tcp::socket socket) : socket_(std::move(socket)) {}
+void Common_Session::delete_client(tcp::socket &socket) {
+    clients.erase(socket);
+}
 
-boost::asio::ip::tcp::socket& Session::socket() {
+Common_Session::Common_Session() {}
+
+
+
+Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
+
+tcp::socket& Server_Session::socket() {
     return socket_;
 }
 
-void Session::start() {
+void Server_Session::start() {
     do_read_size();
 }
 
-void Session::do_read_size() {
-    auto self(std::shared_ptr<Session>(this));
+void Server_Session::do_read_size() {
+    auto self(std::shared_ptr<Server_Session>(this));
     boost::asio::async_read(socket_,
                             boost::asio::buffer(read_msg_.get_size_ptr(), sizeof(int)),
                             [this, self](boost::system::error_code ec, std::size_t /*length*/)
@@ -35,8 +46,8 @@ void Session::do_read_size() {
                             });
 }
 
-void Session::do_read_body() {
-    auto self(std::shared_ptr<Session>(this));
+void Server_Session::do_read_body() {
+    auto self(std::shared_ptr<Server_Session>(this));
     std::tuple<std::string, std::string> action_data;
     boost::asio::async_read(socket_,
                             boost::asio::buffer(read_msg_.get_msg_ptr(), read_msg_.get_size_int()),
@@ -50,28 +61,29 @@ void Session::do_read_body() {
                                     //if action == login then read data, take username and password, check db and insert username in clients map
                                     if (action == "l") {
                                         auto credentials = read_msg_.get_credentials();
-                                        bool found = Session::check_database(std::get<0>(credentials),std::get<1>(credentials));
+                                        bool found = Server_Session::check_database(std::get<0>(credentials), std::get<1>(credentials));
                                         if (found) {
-                                            
+                                            push_username(socket_, std::get<0>(credentials));
                                             std::cout << "found" << std::endl;
                                         }
-                                        else
+                                        else {
+                                            delete_client(socket_);
                                             std::cout << "not found" << std::endl;
-
+                                        }
                                     } else {
-                                        //queue.push_operation();
+                                        std::string username = std::get<0>(read_msg_.get_credentials());
+                                        operationsQueue.push_operation(username, action, data);
                                     }
-                                    //do_read_size();
+                                    do_read_size();
                                 }
-                                else
-                                {
+                                else {
                                     std::cout << ec.message() << std::endl;
                                 }
                             });
 }
 
-void Session::do_write() {
-    auto self(std::shared_ptr<Session>(this));
+void Server_Session::do_write() {
+    auto self(std::shared_ptr<Server_Session>(this));
     boost::asio::async_write(socket_,
                              boost::asio::buffer(write_queue_.front().get_msg_ptr(),
                                                  write_queue_.front().get_size_int()),
@@ -92,11 +104,11 @@ void Session::do_write() {
                              });
 }
 
-void Session::enqueue_msg(const Message &msg) {
+void Server_Session::enqueue_msg(const Message &msg) {
     write_queue_.emplace_back(msg);
 }
 
-bool Session::check_database(std::string username, std::string password) {
+bool Server_Session::check_database(std::string username, std::string password) {
     sqlite3* conn;
     int count = 0;
     if (sqlite3_open("Clients.sqlite", &conn) == SQLITE_OK) {
