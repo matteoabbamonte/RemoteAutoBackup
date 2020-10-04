@@ -6,8 +6,8 @@ Message::Message() {
 
 
 
-void Message::encode_action(std::string& action) {
-    pt.put("action", action);
+void Message::encode_header(std::string& header) {
+    pt.put("header", header);
 }
 
 void Message::encode_data(std::string& data) {
@@ -55,8 +55,8 @@ void Message::decode_message() {
     boost::property_tree::json_parser::read_json(stream, pt);
 }
 
-std::string Message::get_action() {
-    return pt.get<std::string>("action");
+std::string Message::get_header() {
+    return pt.get<std::string>("header");
 }
 
 std::string Message::get_data() {

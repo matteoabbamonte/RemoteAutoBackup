@@ -25,7 +25,6 @@ void Client_Session::do_read_size() {
 
 void Client_Session::do_read_body() {
     auto self(std::shared_ptr<Client_Session>(this));
-    std::tuple<std::string, std::string> action_data;
     boost::asio::async_read(socket_,
                             boost::asio::buffer(read_msg_.get_msg_ptr(), read_msg_.get_size_int()),
                             [this, self](boost::system::error_code ec, std::size_t /*length*/)
@@ -33,9 +32,9 @@ void Client_Session::do_read_body() {
                                 if (!ec)
                                 {
                                     read_msg_.decode_message();
-                                    std::string action = read_msg_.get_action();
+                                    std::string header = read_msg_.get_header();
                                     std::string data = read_msg_.get_data();
-                                    operationsQueue.push_operation(username, action, data);
+                                    responsesQueue.push_operation(username, header, data);
 
                                     do_read_size();
                                 }

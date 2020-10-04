@@ -15,7 +15,7 @@ public:
 
     virtual ~Message();
 
-    void encode_action(std::string& action);
+    void encode_header(std::string& header);
 
     void encode_data(std::string& data);
 
@@ -35,7 +35,7 @@ public:
 
     void decode_message();
 
-    std::string get_action();
+    std::string get_header();
 
     std::string get_data();
 

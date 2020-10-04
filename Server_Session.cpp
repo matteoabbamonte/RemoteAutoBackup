@@ -17,8 +17,6 @@ void Common_Session::delete_client(tcp::socket &socket) {
 
 Common_Session::Common_Session() {}
 
-
-
 Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
 
 tcp::socket& Server_Session::socket() {
@@ -48,7 +46,6 @@ void Server_Session::do_read_size() {
 
 void Server_Session::do_read_body() {
     auto self(std::shared_ptr<Server_Session>(this));
-    std::tuple<std::string, std::string> action_data;
     boost::asio::async_read(socket_,
                             boost::asio::buffer(read_msg_.get_msg_ptr(), read_msg_.get_size_int()),
                             [this, self](boost::system::error_code ec, std::size_t /*length*/)
@@ -56,10 +53,10 @@ void Server_Session::do_read_body() {
                                 if (!ec)
                                 {
                                     read_msg_.decode_message();
-                                    std::string action = read_msg_.get_action();
+                                    std::string header = read_msg_.get_header();
                                     std::string data = read_msg_.get_data();
-                                    //if action == login then read data, take username and password, check db and insert username in clients map
-                                    if (action == "l") {
+                                    //if header == login then read data, take username and password, check db and insert username in clients map
+                                    if (header == "l") {
                                         auto credentials = read_msg_.get_credentials();
                                         bool found = Server_Session::check_database(std::get<0>(credentials), std::get<1>(credentials));
                                         if (found) {
@@ -72,7 +69,7 @@ void Server_Session::do_read_body() {
                                         }
                                     } else {
                                         std::string username = std::get<0>(read_msg_.get_credentials());
-                                        operationsQueue.push_operation(username, action, data);
+                                        operationsQueue.push_operation(username, header, data);
                                     }
                                     do_read_size();
                                 }

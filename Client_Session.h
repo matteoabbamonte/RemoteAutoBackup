@@ -3,10 +3,12 @@
 #include <boost/asio/ip/tcp.hpp>
 #include "Server_Session.h"
 #include "Message.h"
+#include "ResponsesQueue.h"
 
 using boost::asio::ip::tcp;
 
-class Client_Session : Common_Session {
+class Client_Session {
+    ResponsesQueue responsesQueue;
     tcp::socket socket_;
     std::string username;
     Message read_msg_;
