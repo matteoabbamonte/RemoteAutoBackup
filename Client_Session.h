@@ -15,13 +15,13 @@ class Client_Session {
     WriteMsgs write_queue_;
 
 public:
-    Client_Session(tcp::socket &socket, std::string username);
+    Client_Session(tcp::socket &socket);
 
     tcp::socket& socket();
 
+    void do_read_size();    //reads the size of the entire message and starts the reading of the action
 
 private:
-    void do_read_size();    //reads the size of the entire message and starts the reading of the action
 
     void do_read_body();    //reads the message and decodes actions and data
 

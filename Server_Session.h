@@ -19,7 +19,7 @@ typedef struct pClient_username {
 };
 
 class Common_Session {
-    std::map<tcp::socket, pClient_username> clients;
+    std::map<tcp::socket, std::string> clients;
 
 protected:
     OperationsQueue operationsQueue;
@@ -27,9 +27,11 @@ protected:
 public:
     Common_Session();
 
-    void push(tcp::socket &socket, const pClient_username& ptr_user);
+    void push(tcp::socket &socket);
 
     void push_username (tcp::socket &socket, const std::string username);
+
+    std::string get_username(tcp::socket &socket);
 
     void delete_client(tcp::socket &socket);
 

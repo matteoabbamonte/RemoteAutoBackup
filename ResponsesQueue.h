@@ -11,10 +11,9 @@ enum status_type
     updated = 2,
     deleted = 3,
     no_need = 4,
-    bad_request = 5,
-    unauthorized = 6,
-    in_need = 7,
-    service_unavailable = 8
+    unauthorized = 5,
+    in_need = 6,
+    service_unavailable = 7
 };
 
 typedef struct status_data {

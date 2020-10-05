@@ -1,18 +1,22 @@
 #include "Server_Session.h"
 
-void Common_Session::push(tcp::socket &socket, const pClient_username& ptr_user) {
-    clients[socket] = ptr_user;
+void Common_Session::push(tcp::socket &socket) {
+    clients[socket] = "";
 }
 
 void Common_Session::push_username (tcp::socket &socket, const std::string username) {
     auto ptr_user = clients.find(socket);
     if (ptr_user != clients.end()) {
-        clients[socket] = {ptr_user->second.client_ptr, username};
+        clients[socket] = username;
     }
 }
 
 void Common_Session::delete_client(tcp::socket &socket) {
     clients.erase(socket);
+}
+
+std::string Common_Session::get_username(tcp::socket &socket) {
+    return clients[socket];
 }
 
 Common_Session::Common_Session() {}
@@ -68,7 +72,7 @@ void Server_Session::do_read_body() {
                                             std::cout << "not found" << std::endl;
                                         }
                                     } else {
-                                        std::string username = std::get<0>(read_msg_.get_credentials());
+                                        std::string username = get_username(socket_);
                                         operationsQueue.push_operation(username, header, data);
                                     }
                                     do_read_size();
