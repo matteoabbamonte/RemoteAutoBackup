@@ -2,7 +2,7 @@
 
 OperationsQueue::OperationsQueue() : max_size(10) {}
 
-void OperationsQueue::push_operation(std::string username, std::string header, std::string data) {
+void OperationsQueue::push_operation(std::string username, int header, std::string data) {
     std::unique_lock ul(m);
     if (opQueue.size() >= max_size) {
         cv_full.wait(ul, [this](){return opQueue.size() < max_size;});

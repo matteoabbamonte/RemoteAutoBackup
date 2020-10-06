@@ -1,6 +1,5 @@
 #include <boost/asio/thread_pool.hpp>
 #include "Backup_Server.h"
-#include "Server_Session.h"
 
 void Backup_Server::do_accept() {
     acceptor.async_accept(
@@ -18,7 +17,24 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
     boost::asio::thread_pool pool;
     boost::asio::post(pool, [this](){
         while (true) {
-
+            auto operation = commonSession.pop_op();
+            std::string username = operation.username;
+            action_type header = static_cast<action_type>(operation.header);
+            std::string data = operation.data;
+            switch (header) {
+                case(action_type::synchronize) : {
+                    break;
+                }
+                case(action_type::create) : {
+                    break;
+                }
+                case(action_type::update) : {
+                    break;
+                }
+                case(action_type::erase) : {
+                    break;
+                }
+            }
             break;
         }
     });

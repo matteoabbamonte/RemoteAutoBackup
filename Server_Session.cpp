@@ -1,26 +1,5 @@
 #include "Server_Session.h"
 
-void Common_Session::push(tcp::socket &socket) {
-    clients[socket] = "";
-}
-
-void Common_Session::push_username (tcp::socket &socket, const std::string username) {
-    auto ptr_user = clients.find(socket);
-    if (ptr_user != clients.end()) {
-        clients[socket] = username;
-    }
-}
-
-void Common_Session::delete_client(tcp::socket &socket) {
-    clients.erase(socket);
-}
-
-std::string Common_Session::get_username(tcp::socket &socket) {
-    return clients[socket];
-}
-
-Common_Session::Common_Session() {}
-
 Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
 
 tcp::socket& Server_Session::socket() {
@@ -57,10 +36,10 @@ void Server_Session::do_read_body() {
                                 if (!ec)
                                 {
                                     read_msg_.decode_message();
-                                    std::string header = read_msg_.get_header();
+                                    action_type header = static_cast< action_type>(read_msg_.get_header());
                                     std::string data = read_msg_.get_data();
                                     //if header == login then read data, take username and password, check db and insert username in clients map
-                                    if (header == "l") {
+                                    if (header == action_type::login) {
                                         auto credentials = read_msg_.get_credentials();
                                         bool found = Server_Session::check_database(std::get<0>(credentials), std::get<1>(credentials));
                                         if (found) {

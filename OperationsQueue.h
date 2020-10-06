@@ -7,7 +7,7 @@
 
 typedef struct Client_Header_Data {
     std::string username;
-    std::string header;
+    int header;
     std::string data;
 };
 
@@ -21,7 +21,7 @@ class OperationsQueue {
 public:
     OperationsQueue();
 
-    void push_operation(std::string username, std::string header, std::string data);
+    void push_operation(std::string username, int header, std::string data);
 
     Client_Header_Data pop_operation();
 

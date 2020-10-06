@@ -69,14 +69,13 @@ std::tuple<std::string, std::string> Message::get_credentials() {
     return std::tuple<std::string, std::string>(username, password);
 }
 
-Message::~Message() {
-    delete [] size;
-    delete [] msg_ptr;
-}
-
 void Message::put_credentials(std::string username, std::string password) {
     std::string user_pass = username + "||" + password;
     encode_data(user_pass);
 }
 
+Message::~Message() {
+    delete [] size;
+    delete [] msg_ptr;
+}
 

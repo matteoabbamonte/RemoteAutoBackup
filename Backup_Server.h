@@ -2,6 +2,7 @@
 
 #include <boost/asio/ip/tcp.hpp>
 #include "Client.h"
+#include "Server_Session.h"
 
 using boost::asio::ip::tcp;
 

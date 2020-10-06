@@ -4,38 +4,15 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <deque>
+#include <sqlite3.h>
 #include "Message.h"
 #include "OperationsQueue.h"
 #include "Client.h"
-#include <sqlite3.h>
+#include "Headers.h"
+#include "Common_Session.h"
 
 using boost::asio::ip::tcp;
 typedef std::deque<Message> WriteMsgs;
-using pClient = std::shared_ptr<Client>;
-
-typedef struct pClient_username {
-    pClient client_ptr;
-    std::string username;
-};
-
-class Common_Session {
-    std::map<tcp::socket, std::string> clients;
-
-protected:
-    OperationsQueue operationsQueue;
-
-public:
-    Common_Session();
-
-    void push(tcp::socket &socket);
-
-    void push_username (tcp::socket &socket, const std::string username);
-
-    std::string get_username(tcp::socket &socket);
-
-    void delete_client(tcp::socket &socket);
-
-};
 
 class Server_Session : Common_Session {
     tcp::socket socket_;
@@ -48,7 +25,6 @@ public:
     void start();
 
     tcp::socket& socket();
-
 
 private:
     void do_read_size();    //reads the size of the entire message and starts the reading of the action

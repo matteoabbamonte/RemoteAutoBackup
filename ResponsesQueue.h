@@ -3,21 +3,11 @@
 #include <queue>
 #include <mutex>
 #include <condition_variable>
-
-enum status_type
-{
-    ok = 0,
-    created = 1,
-    updated = 2,
-    deleted = 3,
-    no_need = 4,
-    unauthorized = 5,
-    in_need = 6,
-    service_unavailable = 7
-};
+#include <string>
+#include "Headers.h"
 
 typedef struct status_data {
-    status_type status;
+    int status;
     std::string data;
 };
 
@@ -31,7 +21,7 @@ class ResponsesQueue {
 public:
     ResponsesQueue();
 
-    void push_response(status_type status, std::string data);
+    void push_response(int status, std::string data);
 
     status_data pop_response();
 

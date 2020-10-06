@@ -1,10 +1,11 @@
 #include "ResponsesQueue.h"
 
 #include <utility>
+#include <string>
 
 ResponsesQueue::ResponsesQueue() : max_size(5) {}
 
-void ResponsesQueue::push_response(status_type status, std::string data) {
+void ResponsesQueue::push_response(int status, std::string data) {
     std::unique_lock ul(m);
     if (resQueue.size() >= max_size) {
         cv_full.wait(ul, [this](){return resQueue.size() < max_size;});
