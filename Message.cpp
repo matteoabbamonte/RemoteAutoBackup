@@ -4,9 +4,7 @@ Message::Message() {
     size = new char[4];
 }
 
-
-
-void Message::encode_header(std::string& header) {
+void Message::encode_header(int header) {
     pt.put("header", header);
 }
 
@@ -55,8 +53,8 @@ void Message::decode_message() {
     boost::property_tree::json_parser::read_json(stream, pt);
 }
 
-std::string Message::get_header() {
-    return pt.get<std::string>("header");
+int Message::get_header() {
+    return pt.get<int>("header");
 }
 
 std::string Message::get_data() {
@@ -74,6 +72,11 @@ std::tuple<std::string, std::string> Message::get_credentials() {
 Message::~Message() {
     delete [] size;
     delete [] msg_ptr;
+}
+
+void Message::put_credentials(std::string username, std::string password) {
+    std::string user_pass = username + "||" + password;
+    encode_data(user_pass);
 }
 
 

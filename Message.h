@@ -15,7 +15,7 @@ public:
 
     virtual ~Message();
 
-    void encode_header(std::string& header);
+    void encode_header(int header);
 
     void encode_data(std::string& data);
 
@@ -35,10 +35,11 @@ public:
 
     void decode_message();
 
-    std::string get_header();
+    int get_header();
 
     std::string get_data();
 
     std::tuple<std::string, std::string> get_credentials();
 
+    void put_credentials(std::string username, std::string password);
 };

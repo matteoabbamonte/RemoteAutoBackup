@@ -21,6 +21,10 @@ public:
 
     void do_read_size();    //reads the size of the entire message and starts the reading of the action
 
+    //void set_username(std::string username);
+
+    void get_credentials();
+
 private:
 
     void do_read_body();    //reads the message and decodes actions and data
