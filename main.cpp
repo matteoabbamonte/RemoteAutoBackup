@@ -3,7 +3,7 @@
 
 int main() {
     // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
-    DirectoryWatcher fw{"../../dir", std::chrono::milliseconds(5000)};
+    DirectoryWatcher fw{"../../root", std::chrono::milliseconds(5000)};
 
     // Start monitoring a folder for changes and (in case of changes)
     // run a user provided lambda function

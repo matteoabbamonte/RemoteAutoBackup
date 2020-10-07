@@ -2,19 +2,19 @@
 
 #include <string>
 #include <map>
-#include "Client.h"
 #include "OperationsQueue.h"
+#include "Client.h"
 
-using pClient = std::shared_ptr<Client>;
+using pPaths = std::shared_ptr<std::map<std::string, std::string>>;
 using boost::asio::ip::tcp;
 
-typedef struct pClient_username {
-    pClient client_ptr;
+typedef struct pPaths_username {
+    pPaths paths_ptr;
     std::string username;
 };
 
 class Common_Session {
-    std::map<tcp::socket, std::string> clients;
+    std::map<tcp::socket, pPaths_username> clients;
 
 protected:
     OperationsQueue operationsQueue;

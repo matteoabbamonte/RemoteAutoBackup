@@ -1,9 +1,10 @@
+#include <boost/filesystem.hpp>
 #include "Common_Session.h"
 
 Common_Session::Common_Session() {}
 
 void Common_Session::push(tcp::socket &socket) {
-    clients[socket] = "";
+    clients[socket] = {nullptr, ""};
 }
 
 void Common_Session::push_username (tcp::socket &socket, const std::string username) {
@@ -18,11 +19,12 @@ void Common_Session::delete_client(tcp::socket &socket) {
 }
 
 std::string Common_Session::get_username(tcp::socket &socket) {
-    return clients[socket];
+    return clients[socket].username;
 }
 
 Client_Header_Data Common_Session::pop_op() {
     operationsQueue.pop_operation();
 }
+
 
 

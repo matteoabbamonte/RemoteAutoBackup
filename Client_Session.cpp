@@ -70,10 +70,6 @@ void Client_Session::enqueue_msg(const Message &msg) {
     write_queue_.emplace_back(msg);
 }
 
-/* void Client_Session::set_username(std::string username) {
-    this->username = username;
-} */
-
 void Client_Session::get_credentials() {
     std::cout << "Insert username: ";
     std::getline(std::cin, this->username);
