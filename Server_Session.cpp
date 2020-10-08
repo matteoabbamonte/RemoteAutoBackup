@@ -109,3 +109,25 @@ bool Server_Session::check_database(std::string username, std::string password) 
     }
     return count;
 }
+
+void Server_Session::get_paths(std::string username) {
+    sqlite3* conn;
+    unsigned char *paths_ch;
+    if (sqlite3_open("Clients.sqlite", &conn) == SQLITE_OK) {
+        std::string sqlStatement = "SELECT paths FROM client WHERE username = '" + username + "';";
+        sqlite3_stmt *statement;
+
+        if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, NULL) == SQLITE_OK) {
+            while( sqlite3_step(statement) == SQLITE_ROW ) {
+                paths_ch = const_cast<unsigned char*>(sqlite3_column_text(statement, 0));
+            }
+            std::string paths_str(reinterpret_cast<char*>(paths_ch));   //cast in order to remove unsigned
+            delete paths_ch;
+        }
+        else {
+            std::cout << "Database Connection Error" << std::endl;
+        }
+        sqlite3_finalize(statement);
+        sqlite3_close(conn);
+    }
+}

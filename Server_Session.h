@@ -18,6 +18,7 @@ class Server_Session : Common_Session {
     tcp::socket socket_;
     Message read_msg_;
     WriteMsgs write_queue_;
+    std::map<std::string, std::string> paths;
 
 public:
     Server_Session(tcp::socket &socket);
@@ -36,4 +37,6 @@ private:
     void enqueue_msg(const Message& msg);
 
     bool check_database(std::string username, std::string password);
+
+    void get_paths(std::string username);
 };

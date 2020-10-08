@@ -5,16 +5,15 @@
 #include "OperationsQueue.h"
 #include "Client.h"
 
-using pPaths = std::shared_ptr<std::map<std::string, std::string>>;
 using boost::asio::ip::tcp;
 
-typedef struct pPaths_username {
+/*typedef struct pPaths_username {
     pPaths paths_ptr;
     std::string username;
-};
+}; */
 
 class Common_Session {
-    std::map<tcp::socket, pPaths_username> clients;
+    std::map<tcp::socket, std::string> clients;
 
 protected:
     OperationsQueue operationsQueue;
@@ -24,7 +23,7 @@ public:
 
     void push(tcp::socket &socket);
 
-    void push_username (tcp::socket &socket, const std::string username);
+    void push_username(tcp::socket &socket, const std::string username);
 
     std::string get_username(tcp::socket &socket);
 
