@@ -114,7 +114,7 @@ void Server_Session::get_paths(std::string username) {
     sqlite3* conn;
     unsigned char *paths_ch;
     if (sqlite3_open("Clients.sqlite", &conn) == SQLITE_OK) {
-        std::string sqlStatement = "SELECT paths FROM client WHERE username = '" + username + "';";
+        std::string sqlStatement = std::string("SELECT paths FROM client WHERE username = '") + username + std::string("';");
         sqlite3_stmt *statement;
 
         if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, NULL) == SQLITE_OK) {
@@ -122,7 +122,11 @@ void Server_Session::get_paths(std::string username) {
                 paths_ch = const_cast<unsigned char*>(sqlite3_column_text(statement, 0));
             }
             std::string paths_str(reinterpret_cast<char*>(paths_ch));   //cast in order to remove unsigned
-            delete paths_ch;
+            boost::property_tree::ptree pt;
+            boost::property_tree::read_json(paths_str, pt);
+            for (auto pair : pt) {
+                paths[pair.first] = pair.second.data();
+            }
         }
         else {
             std::cout << "Database Connection Error" << std::endl;
