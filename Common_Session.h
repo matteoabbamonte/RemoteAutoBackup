@@ -31,6 +31,8 @@ public:
 
     OpInfo pop_op();
 
+    void push_op(std::string username, int header, std::string data, tcp::socket &socket);
+
     virtual ~Common_Session();
 
 };

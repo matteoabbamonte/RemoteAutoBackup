@@ -1,7 +1,5 @@
 #include "Server_Session.h"
 
-//Server_Session::Server_Session(){};
-
 Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
 
 tcp::socket& Server_Session::socket() {
@@ -45,16 +43,16 @@ void Server_Session::do_read_body() {
                                         auto credentials = read_msg_.get_credentials();
                                         bool found = Server_Session::check_database(std::get<0>(credentials), std::get<1>(credentials));
                                         if (found) {
-                                            push_username(socket_, std::get<0>(credentials));
+                                            commonSession->push_username(socket_, std::get<0>(credentials));
                                             std::cout << "found" << std::endl;
                                         }
                                         else {
-                                            delete_client(socket_);
+                                            commonSession->delete_client(socket_);
                                             std::cout << "not found" << std::endl;
                                         }
                                     } else {
-                                        std::string username = get_username(socket_);
-                                        operationsQueue.push_operation(username, header, data, socket_);
+                                        std::string username = commonSession->get_username(socket_);
+                                        commonSession->push_op(username, header, data, socket_);
                                     }
                                     do_read_size();
                                 }

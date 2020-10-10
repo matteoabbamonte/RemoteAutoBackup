@@ -14,15 +14,14 @@
 using boost::asio::ip::tcp;
 typedef std::deque<Message> WriteMsgs;
 
-class Server_Session : Common_Session {
+class Server_Session {
     tcp::socket socket_;
     Message read_msg_;
     WriteMsgs write_queue_;
     std::map<std::string, std::string> paths;
+    std::shared_ptr<Common_Session> commonSession;
 
 public:
-    Server_Session();
-
     Server_Session(tcp::socket &socket);
 
     void start();

@@ -26,5 +26,9 @@ OpInfo Common_Session::pop_op() {
     operationsQueue.pop_operation();
 }
 
+void Common_Session::push_op(std::string username, int header, std::string data, tcp::socket &socket) {
+    operationsQueue.push_operation(username, header, data, socket);
+}
+
 
 
