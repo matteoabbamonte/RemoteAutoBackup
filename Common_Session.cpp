@@ -22,7 +22,7 @@ std::string Common_Session::get_username(tcp::socket &socket) {
     return clients[socket];
 }
 
-Client_Header_Data Common_Session::pop_op() {
+OpInfo Common_Session::pop_op() {
     operationsQueue.pop_operation();
 }
 

@@ -1,5 +1,7 @@
 #include "Server_Session.h"
 
+//Server_Session::Server_Session(){};
+
 Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
 
 tcp::socket& Server_Session::socket() {
@@ -52,7 +54,7 @@ void Server_Session::do_read_body() {
                                         }
                                     } else {
                                         std::string username = get_username(socket_);
-                                        operationsQueue.push_operation(username, header, data);
+                                        operationsQueue.push_operation(username, header, data, socket_);
                                     }
                                     do_read_size();
                                 }
@@ -110,9 +112,10 @@ bool Server_Session::check_database(std::string username, std::string password) 
     return count;
 }
 
-void Server_Session::get_paths(std::string username) {
+bool Server_Session::get_paths(std::string username) {
     sqlite3* conn;
     unsigned char *paths_ch;
+    bool found = true;
     if (sqlite3_open("Clients.sqlite", &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("SELECT paths FROM client WHERE username = '") + username + std::string("';");
         sqlite3_stmt *statement;
@@ -121,11 +124,16 @@ void Server_Session::get_paths(std::string username) {
             while( sqlite3_step(statement) == SQLITE_ROW ) {
                 paths_ch = const_cast<unsigned char*>(sqlite3_column_text(statement, 0));
             }
-            std::string paths_str(reinterpret_cast<char*>(paths_ch));   //cast in order to remove unsigned
-            boost::property_tree::ptree pt;
-            boost::property_tree::read_json(paths_str, pt);
-            for (auto pair : pt) {
-                paths[pair.first] = pair.second.data();
+            if (paths_ch == NULL) {
+                found = false;
+            } else {
+                std::string paths_str(reinterpret_cast<char*>(paths_ch));   //cast in order to remove unsigned
+                found = true;
+                boost::property_tree::ptree pt;
+                boost::property_tree::read_json(paths_str, pt);
+                for (auto pair : pt) {
+                    paths[pair.first] = pair.second.data();
+                }
             }
         }
         else {
@@ -133,5 +141,6 @@ void Server_Session::get_paths(std::string username) {
         }
         sqlite3_finalize(statement);
         sqlite3_close(conn);
+        return found;
     }
 }

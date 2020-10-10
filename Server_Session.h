@@ -21,13 +21,14 @@ class Server_Session : Common_Session {
     std::map<std::string, std::string> paths;
 
 public:
+    Server_Session();
+
     Server_Session(tcp::socket &socket);
 
     void start();
 
     tcp::socket& socket();
 
-private:
     void do_read_size();    //reads the size of the entire message and starts the reading of the action
 
     void do_read_body();    //reads the message and decodes actions and data
@@ -38,5 +39,5 @@ private:
 
     bool check_database(std::string username, std::string password);
 
-    void get_paths(std::string username);
+    bool get_paths(std::string username);
 };

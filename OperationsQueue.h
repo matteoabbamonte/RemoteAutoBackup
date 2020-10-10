@@ -4,15 +4,19 @@
 #include <string>
 #include <mutex>
 #include <condition_variable>
+#include <boost/asio/ip/tcp.hpp>
 
-typedef struct Client_Header_Data {
+using boost::asio::ip::tcp;
+
+typedef struct OpInfo {
     std::string username;
     int header;
     std::string data;
+    tcp::socket& socket;
 };
 
 class OperationsQueue {
-    std::queue<Client_Header_Data> opQueue;
+    std::queue<OpInfo> opQueue;
     std::mutex m;
     std::condition_variable cv_full;
     std::condition_variable cv_empty;
@@ -21,8 +25,8 @@ class OperationsQueue {
 public:
     OperationsQueue();
 
-    void push_operation(std::string username, int header, std::string data);
+    void push_operation(std::string username, int header, std::string data, tcp::socket &socket);
 
-    Client_Header_Data pop_operation();
+    OpInfo pop_operation();
 
 };

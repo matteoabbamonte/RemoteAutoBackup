@@ -8,7 +8,7 @@ using boost::asio::ip::tcp;
 
 class Backup_Server {
     tcp::acceptor acceptor;
-    Common_Session commonSession;
+    Common_Session* commonSession;
 
     void do_accept();
 

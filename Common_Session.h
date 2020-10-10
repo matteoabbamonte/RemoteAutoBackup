@@ -13,7 +13,7 @@ using boost::asio::ip::tcp;
 }; */
 
 class Common_Session {
-    std::map<tcp::socket, std::string> clients;
+    std::map<tcp::socket,std::string> clients;
 
 protected:
     OperationsQueue operationsQueue;
@@ -29,6 +29,8 @@ public:
 
     void delete_client(tcp::socket &socket);
 
-    Client_Header_Data pop_op();
+    OpInfo pop_op();
+
+    virtual ~Common_Session();
 
 };
