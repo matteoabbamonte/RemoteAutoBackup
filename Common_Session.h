@@ -14,9 +14,8 @@ using boost::asio::ip::tcp;
 
 class Common_Session {
     std::map<tcp::socket,std::string> clients;
-
-protected:
     OperationsQueue operationsQueue;
+    WriteMsgs write_queue;
 
 public:
     Common_Session();
@@ -32,6 +31,14 @@ public:
     OpInfo pop_op();
 
     void push_op(std::string username, int header, std::string data, tcp::socket &socket);
+
+    void enqueue_msg(const Message& msg);
+
+    Message front_wr();
+
+    void pop_wr();
+
+    bool empty_wr();
 
     virtual ~Common_Session();
 

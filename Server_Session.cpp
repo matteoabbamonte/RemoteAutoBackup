@@ -36,7 +36,7 @@ void Server_Session::do_read_body() {
                                 if (!ec)
                                 {
                                     read_msg_.decode_message();
-                                    action_type header = static_cast< action_type>(read_msg_.get_header());
+                                    action_type header = static_cast<action_type>(read_msg_.get_header());
                                     std::string data = read_msg_.get_data();
                                     //if header == login then read data, take username and password, check db and insert username in clients map
                                     if (header == action_type::login) {
@@ -65,14 +65,14 @@ void Server_Session::do_read_body() {
 void Server_Session::do_write() {
     auto self(std::shared_ptr<Server_Session>(this));
     boost::asio::async_write(socket_,
-                             boost::asio::buffer(write_queue_.front().get_msg_ptr(),
-                                                 write_queue_.front().get_size_int()),
+                             boost::asio::buffer(commonSession->front_wr().get_msg_ptr(),
+                                                 commonSession->front_wr().get_size_int()),
                              [this, self](boost::system::error_code ec, std::size_t /*length*/)
                              {
                                  if (!ec)
                                  {
-                                     write_queue_.pop_front();
-                                     if (!write_queue_.empty())
+                                     commonSession->pop_wr();
+                                     if (!commonSession->empty_wr())
                                      {
                                          do_write();
                                      }
@@ -82,10 +82,6 @@ void Server_Session::do_write() {
                                      std::cout << ec.message() << std::endl;
                                  }
                              });
-}
-
-void Server_Session::enqueue_msg(const Message &msg) {
-    write_queue_.emplace_back(msg);
 }
 
 bool Server_Session::check_database(std::string username, std::string password) {
@@ -141,4 +137,19 @@ bool Server_Session::get_paths(std::string username) {
         sqlite3_close(conn);
         return found;
     }
+}
+
+std::vector<std::string> Server_Session::compare_paths(ptree client_pt) {
+    std::vector<std::string> response_paths;
+    for (auto &entry : client_pt) {
+        auto it = paths.find(entry.first);
+        if (it != paths.end()) {
+            if (it->second != entry.second.data()) {
+                response_paths.emplace_back(it->first);
+            }
+        } else {
+            response_paths.emplace_back(it->first);
+        }
+    }
+    return response_paths;
 }

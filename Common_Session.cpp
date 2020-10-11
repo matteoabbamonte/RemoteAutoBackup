@@ -30,5 +30,19 @@ void Common_Session::push_op(std::string username, int header, std::string data,
     operationsQueue.push_operation(username, header, data, socket);
 }
 
+Message Common_Session::front_wr() {
+    return write_queue.front();
+}
 
+void Common_Session::pop_wr() {
+    write_queue.pop_front();
+}
+
+bool Common_Session::empty_wr() {
+    return write_queue.empty();
+}
+
+void Common_Session::enqueue_msg(const Message &msg) {
+    write_queue.emplace_back(msg);
+}
 

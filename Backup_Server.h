@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/thread.hpp>
 #include "Client.h"
 #include "Server_Session.h"
 

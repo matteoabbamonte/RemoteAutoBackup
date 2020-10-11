@@ -13,11 +13,11 @@
 
 using boost::asio::ip::tcp;
 typedef std::deque<Message> WriteMsgs;
+using boost::property_tree::ptree;
 
 class Server_Session {
     tcp::socket socket_;
     Message read_msg_;
-    WriteMsgs write_queue_;
     std::map<std::string, std::string> paths;
     std::shared_ptr<Common_Session> commonSession;
 
@@ -34,9 +34,9 @@ public:
 
     void do_write();        //writes the available messages from the queue to the socket
 
-    void enqueue_msg(const Message& msg);
-
     bool check_database(std::string username, std::string password);
 
     bool get_paths(std::string username);
+
+    std::vector<std::string> compare_paths(ptree client_pt);
 };

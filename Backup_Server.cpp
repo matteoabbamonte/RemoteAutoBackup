@@ -25,13 +25,33 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
             std::string data = operation.data;
             tcp::socket& socket = operation.socket;
             Server_Session serverSession(socket);
+            Message response_msg;
             switch (header) {
                 case(action_type::synchronize) : {
+                    boost::property_tree::ptree pt;
+                    boost::property_tree::json_parser::read_json(data, pt);
                     if (serverSession.get_paths(username)) {
                         //deve confrontare le mappe e rispondere con in_need o no_need
+                        std::vector<std::string> missing_paths = serverSession.compare_paths(pt);
+                        if (missing_paths.empty()) {
+                            response_msg.encode_header(4);
+                            std::string no_need_str = "no_need";
+                            response_msg.encode_data(no_need_str);
+                        } else {
+                            response_msg.encode_header(5);
+                            std::string need_str;
+                            for (const auto & path : missing_paths) need_str += path + "||";
+                            response_msg.encode_data(need_str);
+                        }
                     } else {
                         //deve rispondere in_need con tutta la mappa ricevuta come dati
+                        response_msg.encode_header(5);
+                        std::string need_str;
+                        for (const auto & path : pt) need_str += path.first + "||";
+                        response_msg.encode_data(need_str);
                     }
+                    response_msg.zip_message();
+                    commonSession.enqueue_msg(response_msg);
                     break;
                 }
                 case(action_type::create) : {
@@ -44,7 +64,9 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
                     break;
                 }
             }
+            // !!!!
             break;
         }
     });
+    
 }

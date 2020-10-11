@@ -31,7 +31,7 @@ char* Message::get_size_ptr() {
     return size;
 }
 
-char*  Message::get_msg_ptr() {
+char* Message::get_msg_ptr() {
     return msg_ptr;
 }
 
