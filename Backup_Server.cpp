@@ -13,12 +13,11 @@ void Backup_Server::do_accept() {
             });
 }
 
-Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::endpoint& endpoint) : acceptor(io_context, endpoint) {
-    //commonSession = std::shared_ptr<Common_Session>(new Common_Session());
+Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::endpoint& endpoint) : acceptor(io_context, endpoint), active(true) {
     boost::asio::thread_pool pool;
     do_accept();
     boost::asio::post(pool, [this](){
-        while (true) {
+        while (active) {
             auto operation = commonSession.pop_op();
             std::string username = operation.username;
             auto header = static_cast<action_type>(operation.header);
@@ -26,8 +25,11 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
             tcp::socket& socket = operation.socket;
             Server_Session serverSession(socket);
             Message response_msg;
+
             switch (header) {
+
                 case(action_type::synchronize) : {
+
                     boost::property_tree::ptree pt;
                     boost::property_tree::json_parser::read_json(data, pt);
                     if (serverSession.get_paths(username)) {
@@ -51,15 +53,31 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
                         response_msg.encode_data(need_str);
                     }
                     response_msg.zip_message();
-                    commonSession.enqueue_msg(response_msg);
+                    serverSession.enqueue_msg(response_msg);
                     break;
                 }
+
                 case(action_type::create) : {
+
+                    boost::property_tree::ptree pt;
+                    boost::property_tree::json_parser::read_json(data, pt);
+                    std::string path = pt.get<std::string>("path");
+                    std::size_t hash = pt.get<std::size_t>("hash");
+                    bool isDirectory = pt.get<bool>("isDirectory");
+                    serverSession.insert_path(path, hash);
+                    std::string relative_path = std::string(username) + std::string("/") + std::string(path);
+                    if (isDirectory) {
+                        //create a directory with the specified name
+                    } else {
+                        //create a file with the specified name
+                    }
                     break;
                 }
+
                 case(action_type::update) : {
                     break;
                 }
+
                 case(action_type::erase) : {
                     break;
                 }

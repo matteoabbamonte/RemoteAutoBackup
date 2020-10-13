@@ -2,8 +2,12 @@
 
 Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
 
-tcp::socket& Server_Session::socket() {
+/*tcp::socket& Server_Session::socket() {
     return socket_;
+}*/
+
+void Server_Session::insert_path(std::string path, size_t hash) {
+    paths[path] = hash;
 }
 
 void Server_Session::start() {
@@ -65,14 +69,14 @@ void Server_Session::do_read_body() {
 void Server_Session::do_write() {
     auto self(std::shared_ptr<Server_Session>(this));
     boost::asio::async_write(socket_,
-                             boost::asio::buffer(commonSession->front_wr().get_msg_ptr(),
-                                                 commonSession->front_wr().get_size_int()),
+                             boost::asio::buffer(write_queue.front().get_msg_ptr(),
+                                                 write_queue.front().get_size_int()),
                              [this, self](boost::system::error_code ec, std::size_t /*length*/)
                              {
                                  if (!ec)
                                  {
-                                     commonSession->pop_wr();
-                                     if (!commonSession->empty_wr())
+                                     write_queue.pop_front();
+                                     if (!write_queue.empty())
                                      {
                                          do_write();
                                      }
@@ -126,7 +130,10 @@ bool Server_Session::get_paths(std::string username) {
                 boost::property_tree::ptree pt;
                 boost::property_tree::read_json(paths_str, pt);
                 for (auto pair : pt) {
-                    paths[pair.first] = pair.second.data();
+                    std::stringstream hash_stream(pair.second.data());
+                    size_t hash;
+                    hash_stream >> hash;
+                    paths[pair.first] = hash;
                 }
             }
         }
@@ -144,7 +151,10 @@ std::vector<std::string> Server_Session::compare_paths(ptree client_pt) {
     for (auto &entry : client_pt) {
         auto it = paths.find(entry.first);
         if (it != paths.end()) {
-            if (it->second != entry.second.data()) {
+            std::stringstream hash_stream(entry.second.data());
+            size_t entry_hash;
+            hash_stream >> entry_hash;
+            if (it->second != entry_hash) {
                 response_paths.emplace_back(it->first);
             }
         } else {
@@ -152,4 +162,9 @@ std::vector<std::string> Server_Session::compare_paths(ptree client_pt) {
         }
     }
     return response_paths;
+}
+
+void Server_Session::enqueue_msg(const Message &msg) {
+    write_queue.emplace_back(msg);
+    do_write();
 }

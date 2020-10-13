@@ -2,6 +2,7 @@
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/thread.hpp>
+#include <boost/filesystem.hpp>
 #include "Client.h"
 #include "Server_Session.h"
 
@@ -10,6 +11,7 @@ using boost::asio::ip::tcp;
 class Backup_Server {
     tcp::acceptor acceptor;
     Common_Session commonSession;
+    bool active;
 
     void do_accept();
 
