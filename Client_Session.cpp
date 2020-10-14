@@ -47,14 +47,14 @@ void Client_Session::do_read_body() {
 void Client_Session::do_write() {
     auto self(std::shared_ptr<Client_Session>(this));
     boost::asio::async_write(socket_,
-                             boost::asio::buffer(write_queue_.front().get_msg_ptr(),
-                                                 write_queue_.front().get_size_int()),
+                             boost::asio::buffer(write_queue_c.front().get_msg_ptr(),
+                                                 write_queue_c.front().get_size_int()),
                              [this, self](boost::system::error_code ec, std::size_t /*length*/)
                              {
                                  if (!ec)
                                  {
-                                     write_queue_.pop_front();
-                                     if (!write_queue_.empty())
+                                     write_queue_c.pop_front();
+                                     if (!write_queue_c.empty())
                                      {
                                          do_write();
                                      }
@@ -67,7 +67,7 @@ void Client_Session::do_write() {
 }
 
 void Client_Session::enqueue_msg(const Message &msg) {
-    write_queue_.emplace_back(msg);
+    write_queue_c.emplace_back(msg);
 }
 
 void Client_Session::get_credentials() {

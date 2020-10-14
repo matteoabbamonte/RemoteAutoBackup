@@ -12,7 +12,6 @@
 #include "Common_Session.h"
 
 using boost::asio::ip::tcp;
-typedef std::deque<Message> WriteMsgs;
 using boost::property_tree::ptree;
 
 class Server_Session {
@@ -20,7 +19,7 @@ class Server_Session {
     Message read_msg_;
     std::map<std::string, std::size_t> paths;
     std::shared_ptr<Common_Session> commonSession;
-    WriteMsgs write_queue;
+    std::deque<Message> write_queue_s;
 
 public:
     Server_Session(tcp::socket &socket);

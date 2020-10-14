@@ -1,6 +1,6 @@
 #pragma once
 
-static enum status_type {
+enum status_type {
     ok = 0,
     created = 1,
     updated = 2,
@@ -11,7 +11,7 @@ static enum status_type {
     service_unavailable = 7
 };
 
-static enum action_type {
+enum action_type {
     login = 0,
     synchronize = 1,
     create = 2,

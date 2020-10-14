@@ -12,7 +12,7 @@ class Client_Session {
     tcp::socket socket_;
     std::string username;
     Message read_msg_;
-    WriteMsgs write_queue_;
+    std::deque<Message> write_queue_c;
 
 public:
     Client_Session(tcp::socket &socket);

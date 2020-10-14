@@ -69,14 +69,14 @@ void Server_Session::do_read_body() {
 void Server_Session::do_write() {
     auto self(std::shared_ptr<Server_Session>(this));
     boost::asio::async_write(socket_,
-                             boost::asio::buffer(write_queue.front().get_msg_ptr(),
-                                                 write_queue.front().get_size_int()),
+                             boost::asio::buffer(write_queue_s.front().get_msg_ptr(),
+                                                 write_queue_s.front().get_size_int()),
                              [this, self](boost::system::error_code ec, std::size_t /*length*/)
                              {
                                  if (!ec)
                                  {
-                                     write_queue.pop_front();
-                                     if (!write_queue.empty())
+                                     write_queue_s.pop_front();
+                                     if (!write_queue_s.empty())
                                      {
                                          do_write();
                                      }
@@ -165,6 +165,6 @@ std::vector<std::string> Server_Session::compare_paths(ptree client_pt) {
 }
 
 void Server_Session::enqueue_msg(const Message &msg) {
-    write_queue.emplace_back(msg);
+    write_queue_s.emplace_back(msg);
     do_write();
 }
