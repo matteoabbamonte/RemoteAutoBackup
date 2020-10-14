@@ -4,7 +4,7 @@
 Common_Session::Common_Session() {}
 
 void Common_Session::push(tcp::socket &socket) {
-    clients[socket] = "";
+    clients[socket] = std::string("");
 }
 
 void Common_Session::push_username(tcp::socket &socket, const std::string username) {

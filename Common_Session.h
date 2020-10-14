@@ -4,6 +4,7 @@
 #include <map>
 #include "OperationsQueue.h"
 #include "Client.h"
+#include <boost/asio.hpp>
 
 using boost::asio::ip::tcp;
 

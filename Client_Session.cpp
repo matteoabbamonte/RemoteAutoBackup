@@ -33,7 +33,7 @@ void Client_Session::do_read_body() {
                                 if (!ec)
                                 {
                                     read_msg_.decode_message();
-                                    status_type header = boost::lexical_cast<status_type>(read_msg_.get_header());
+                                    status_type header = static_cast<status_type>(read_msg_.get_header());
                                     std::string data = read_msg_.get_data();
                                     responsesQueue.push_response(header, data);
                                     do_read_size();

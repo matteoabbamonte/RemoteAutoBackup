@@ -7,7 +7,6 @@
 #include <sqlite3.h>
 #include "Message.h"
 #include "OperationsQueue.h"
-#include "Client.h"
 #include "Headers.h"
 #include "Common_Session.h"
 
