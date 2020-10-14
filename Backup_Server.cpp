@@ -64,12 +64,15 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
                     std::size_t hash = pt.get<std::size_t>("hash");
                     bool isDirectory = pt.get<bool>("isDirectory");
                     serverSession.insert_path(path, hash);
-                    std::string relative_path = std::string(username) + std::string("/") + std::string(path);
+                    std::string relative_path = std::string("../") + std::string(username) + std::string("/") + std::string(path);
                     if (isDirectory) {
                         //create a directory with the specified name
-                        //boost::filesystem::create_directory
+                        boost::filesystem::create_directory(relative_path);
                     } else {
                         //create a file with the specified name
+                        std::string content = pt.get<std::string>("content");
+                        if (relative_path.find('.') < relative_path.size()) relative_path.replace(relative_path.find('?'), 1, ".");
+                        boost::filesystem::ofstream(relative_path.data());
                     }
                     break;
                 }
