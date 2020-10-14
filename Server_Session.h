@@ -15,6 +15,7 @@ using boost::property_tree::ptree;
 
 class Server_Session {
     tcp::socket socket_;
+    std::string username;
     Message read_msg_;
     std::map<std::string, std::size_t> paths;
     std::shared_ptr<Common_Session> commonSession;

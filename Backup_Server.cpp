@@ -6,7 +6,6 @@ void Backup_Server::do_accept() {
             [this](boost::system::error_code ec, tcp::socket socket)
             {
                 if (!ec) {
-                    commonSession.push(socket);
                     std::make_shared<Server_Session>(socket)->start();
                 }
                 do_accept();

@@ -48,15 +48,12 @@ void Server_Session::do_read_body() {
                                         auto credentials = read_msg_.get_credentials();
                                         bool found = Server_Session::check_database(std::get<0>(credentials), std::get<1>(credentials));
                                         if (found) {
-                                            commonSession->push_username(socket_, std::get<0>(credentials));
-                                            std::cout << "found" << std::endl;
+                                            username =std::get<0>(credentials);
                                         }
-                                        else {
+                                        /*else {
                                             commonSession->delete_client(socket_);
-                                            std::cout << "not found" << std::endl;
-                                        }
+                                        }*/
                                     } else {
-                                        std::string username = commonSession->get_username(socket_);
                                         commonSession->push_op(username, header, data, socket_);
                                     }
                                     do_read_size();
