@@ -9,7 +9,7 @@ Client::Client(boost::asio::io_context& io_context, const tcp::resolver::results
 void Client::do_connect(const tcp::resolver::results_type& endpoints)
 {
     boost::asio::async_connect(socket_, endpoints,
-                               [this](boost::system::error_code ec, tcp::endpoint&)
+                               [this](boost::system::error_code ec, const tcp::endpoint&)
                                {
                                    if (!ec)
                                    {

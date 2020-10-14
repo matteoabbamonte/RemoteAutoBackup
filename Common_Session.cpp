@@ -23,7 +23,7 @@ std::string Common_Session::get_username(tcp::socket &socket) {
 }
 
 OpInfo Common_Session::pop_op() {
-    operationsQueue.pop_operation();
+    return operationsQueue.pop_operation();
 }
 
 void Common_Session::push_op(std::string username, int header, std::string data, tcp::socket &socket) {

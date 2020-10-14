@@ -16,8 +16,9 @@ void Server_Session::start() {
 
 void Server_Session::do_read_size() {
     auto self(std::shared_ptr<Server_Session>(this));
+    int size;
     boost::asio::async_read(socket_,
-                            boost::asio::buffer(read_msg_.get_size_ptr(), sizeof(int)),
+                            boost::asio::buffer(read_msg_.get_size_ptr(), sizeof(size)),
                             [this, self](boost::system::error_code ec, std::size_t /*length*/)
                             {
                                 if (!ec && read_msg_.decode_size())
