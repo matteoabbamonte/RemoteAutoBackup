@@ -22,6 +22,8 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
             auto header = static_cast<action_type>(operation.header);
             std::string data = operation.data;
             tcp::socket& socket = operation.socket;
+            boost::property_tree::ptree pt;
+            boost::property_tree::json_parser::read_json(data, pt);
             Server_Session serverSession(socket);
             Message response_msg;
 
@@ -29,8 +31,6 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
 
                 case(action_type::synchronize) : {
 
-                    boost::property_tree::ptree pt;
-                    boost::property_tree::json_parser::read_json(data, pt);
                     if (serverSession.get_paths(username)) {
                         //deve confrontare le mappe e rispondere con in_need o no_need
                         std::vector<std::string> missing_paths = serverSession.compare_paths(pt);
@@ -58,8 +58,6 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
 
                 case(action_type::create) : {
 
-                    boost::property_tree::ptree pt;
-                    boost::property_tree::json_parser::read_json(data, pt);
                     std::string path = pt.get<std::string>("path");
                     std::size_t hash = pt.get<std::size_t>("hash");
                     bool isDirectory = pt.get<bool>("isDirectory");
@@ -71,13 +69,20 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
                     } else {
                         //create a file with the specified name
                         std::string content = pt.get<std::string>("content");
-                        if (relative_path.find('.') < relative_path.size()) relative_path.replace(relative_path.find('?'), 1, ".");
-                        boost::filesystem::ofstream(relative_path.data());
+                        if (relative_path.find(':') < relative_path.size()) relative_path.replace(relative_path.find(':'), 1, ".");
+                        boost::filesystem::ofstream outFile(relative_path.data());
+                        if (!content.empty()) {
+                            outFile.open(relative_path.data(), std::ios::binary);
+                            outFile.write(content.data(), content.size());
+                            outFile.close();
+                        }
                     }
                     break;
                 }
 
                 case(action_type::update) : {
+
+
                     break;
                 }
 
