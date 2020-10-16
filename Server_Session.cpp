@@ -6,7 +6,7 @@ Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket))
     return socket_;
 }*/
 
-void Server_Session::insert_path(std::string path, size_t hash) {
+void Server_Session::update_paths(std::string path, size_t hash) {
     paths[path] = hash;
 }
 

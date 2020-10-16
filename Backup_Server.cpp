@@ -61,7 +61,7 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
                     std::string path = pt.get<std::string>("path");
                     std::size_t hash = pt.get<std::size_t>("hash");
                     bool isDirectory = pt.get<bool>("isDirectory");
-                    serverSession.insert_path(path, hash);
+                    serverSession.update_paths(path, hash);
                     std::string relative_path = std::string("../") + std::string(username) + std::string("/") + std::string(path);
                     if (isDirectory) {
                         //create a directory with the specified name
@@ -82,6 +82,18 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
 
                 case(action_type::update) : {
 
+                    std::string path = pt.get<std::string>("path");
+                    std::size_t hash = pt.get<std::size_t>("hash");
+                    bool isDirectory = pt.get<bool>("isDirectory");
+                    serverSession.update_paths(path, hash);
+                    if (!isDirectory) {
+                        std::string content = pt.get<std::string>("content");
+                        std::string relative_path = std::string("../") + std::string(username) + std::string("/") + std::string(path);
+                        if (relative_path.find(':') < relative_path.size()) relative_path.replace(relative_path.find(':'), 1, ".");
+                        boost::filesystem::ofstream outFile;
+                        outFile.open(relative_path.data(), std::ios::binary);
+                        //overwrite file content with new content
+                    }
 
                     break;
                 }

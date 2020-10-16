@@ -28,7 +28,7 @@ public:
 
     //tcp::socket& socket();
 
-    void insert_path(std::string path, size_t hash);
+    void update_paths(std::string path, size_t hash);
 
     void do_read_size();    //reads the size of the entire message and starts the reading of the action
 
