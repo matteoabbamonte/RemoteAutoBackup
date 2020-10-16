@@ -10,6 +10,10 @@ void Server_Session::update_paths(std::string path, size_t hash) {
     paths[path] = hash;
 }
 
+void Server_Session::remove_path(std::string path) {
+    paths.erase(path);
+}
+
 void Server_Session::start() {
     do_read_size();
 }
@@ -48,11 +52,8 @@ void Server_Session::do_read_body() {
                                         auto credentials = read_msg_.get_credentials();
                                         bool found = Server_Session::check_database(std::get<0>(credentials), std::get<1>(credentials));
                                         if (found) {
-                                            username =std::get<0>(credentials);
+                                            username = std::get<0>(credentials);
                                         }
-                                        /*else {
-                                            commonSession->delete_client(socket_);
-                                        }*/
                                     } else {
                                         commonSession->push_op(username, header, data, socket_);
                                     }
@@ -86,11 +87,11 @@ void Server_Session::do_write() {
                              });
 }
 
-bool Server_Session::check_database(std::string username, std::string password) {
+bool Server_Session::check_database(std::string temp_username, std::string password) {
     sqlite3* conn;
     int count = 0;
     if (sqlite3_open("Clients.sqlite", &conn) == SQLITE_OK) {
-        std::string sqlStatement = "SELECT COUNT(*) FROM client WHERE username = '" + username
+        std::string sqlStatement = "SELECT COUNT(*) FROM client WHERE username = '" + temp_username
                 + "' AND password = '" + password + "';";
         sqlite3_stmt *statement;
 
@@ -108,10 +109,10 @@ bool Server_Session::check_database(std::string username, std::string password) 
     return count;
 }
 
-bool Server_Session::get_paths(std::string username) {
+bool Server_Session::get_paths(bool & server_availability) {
     sqlite3* conn;
     unsigned char *paths_ch;
-    bool found = true;
+    bool found = false;
     if (sqlite3_open("Clients.sqlite", &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("SELECT paths FROM client WHERE username = '") + username + std::string("';");
         sqlite3_stmt *statement;
@@ -134,14 +135,16 @@ bool Server_Session::get_paths(std::string username) {
                     paths[pair.first] = hash;
                 }
             }
-        }
-        else {
+        } else {
+            server_availability = false;
             std::cout << "Database Connection Error" << std::endl;
         }
         sqlite3_finalize(statement);
         sqlite3_close(conn);
         return found;
     }
+    server_availability = false;
+    return found;
 }
 
 std::vector<std::string> Server_Session::compare_paths(ptree client_pt) {

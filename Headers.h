@@ -8,7 +8,8 @@ enum status_type {
     no_need = 4,
     in_need = 5,
     unauthorized = 6,
-    service_unavailable = 7
+    service_unavailable = 7,
+    wrong_action = 8
 };
 
 enum action_type {

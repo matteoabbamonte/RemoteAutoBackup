@@ -30,6 +30,8 @@ public:
 
     void update_paths(std::string path, size_t hash);
 
+    void remove_path(std::string path);
+
     void do_read_size();    //reads the size of the entire message and starts the reading of the action
 
     void do_read_body();    //reads the message and decodes actions and data
@@ -40,7 +42,7 @@ public:
 
     void enqueue_msg(const Message& msg);
 
-    bool get_paths(std::string username);
+    bool get_paths(bool & server_availability);
 
     std::vector<std::string> compare_paths(ptree client_pt);
 };
