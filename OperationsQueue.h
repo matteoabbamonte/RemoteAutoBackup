@@ -8,7 +8,7 @@
 
 using boost::asio::ip::tcp;
 
-typedef struct OpInfo {
+struct OpInfo {
     std::string username;
     int header;
     std::string data;

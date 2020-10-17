@@ -1,10 +1,6 @@
 #include "Server_Session.h"
 
-Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
-
-/*tcp::socket& Server_Session::socket() {
-    return socket_;
-}*/
+Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)), server_availability(true) {}
 
 void Server_Session::update_paths(std::string path, size_t hash) {
     paths[path] = hash;
@@ -109,7 +105,7 @@ bool Server_Session::check_database(std::string temp_username, std::string passw
     return count;
 }
 
-bool Server_Session::get_paths(bool & server_availability) {
+bool Server_Session::get_paths() {
     sqlite3* conn;
     unsigned char *paths_ch;
     bool found = false;
@@ -137,13 +133,14 @@ bool Server_Session::get_paths(bool & server_availability) {
             }
         } else {
             server_availability = false;
-            std::cout << "Database Connection Error" << std::endl;
+            //std::cout << "Database Connection Error" << std::endl;
         }
         sqlite3_finalize(statement);
         sqlite3_close(conn);
         return found;
+    } else {
+        server_availability = false;
     }
-    server_availability = false;
     return found;
 }
 

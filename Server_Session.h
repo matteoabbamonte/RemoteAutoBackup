@@ -22,11 +22,11 @@ class Server_Session {
     std::deque<Message> write_queue_s;
 
 public:
+    bool server_availability;
+
     Server_Session(tcp::socket &socket);
 
     void start();
-
-    //tcp::socket& socket();
 
     void update_paths(std::string path, size_t hash);
 
@@ -42,7 +42,7 @@ public:
 
     void enqueue_msg(const Message& msg);
 
-    bool get_paths(bool & server_availability);
+    bool get_paths();
 
     std::vector<std::string> compare_paths(ptree client_pt);
 };

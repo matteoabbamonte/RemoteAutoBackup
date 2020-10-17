@@ -6,7 +6,7 @@
 #include <string>
 #include "Headers.h"
 
-typedef struct status_data {
+struct status_data {
     int status;
     std::string data;
 };
