@@ -11,18 +11,18 @@ struct status_data {
     std::string data;
 };
 
-class ResponsesQueue {
-    std::queue<status_data> resQueue;
+class StatusQueue {
+    std::queue<status_data> statQueue;
     std::mutex m;
     std::condition_variable cv_full;
     std::condition_variable cv_empty;
     int max_size;
 
 public:
-    ResponsesQueue();
+    StatusQueue();
 
-    void push_response(int status, std::string data);
+    void push_status(int status, std::string data);
 
-    status_data pop_response();
+    status_data pop_status();
 
 };

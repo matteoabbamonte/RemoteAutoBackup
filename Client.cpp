@@ -4,6 +4,7 @@ Client::Client(boost::asio::io_context& io_context, const tcp::resolver::results
 {
     do_connect(endpoints);
     cs->get_credentials();
+
 }
 
 void Client::do_connect(const tcp::resolver::results_type& endpoints)

@@ -38,7 +38,7 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
                         if (serverSession.get_paths()) {
                             // vede se il database risponde
                             if (serverSession.server_availability) {
-                                //deve confrontare le mappe e rispondere con in_need o no_need
+                                // deve confrontare le mappe e rispondere con in_need o no_need
                                 std::vector<std::string> missing_paths = serverSession.compare_paths(pt);
                                 if (missing_paths.empty()) {
                                     status_type = 4;
@@ -52,7 +52,7 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
                                 response_str = "Service unavailable";
                             }
                         } else {
-                            //deve rispondere in_need con tutta la mappa ricevuta come dati
+                            // deve rispondere in_need con tutta la mappa ricevuta come dati
                             status_type = 5;
                             for (const auto & path : pt) response_str += path.first + "||";
                         }
@@ -68,10 +68,10 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
                         serverSession.update_paths(path, hash);
                         std::string relative_path = std::string("../") + std::string(username) + std::string("/") + std::string(path);
                         if (isDirectory) {
-                            //create a directory with the specified name
+                            // create a directory with the specified name
                             boost::filesystem::create_directory(relative_path);
                         } else {
-                            //create a file with the specified name
+                            // create a file with the specified name
                             auto content = pt.get<std::string>("content");
                             if (relative_path.find(':') < relative_path.size())
                                 relative_path.replace(relative_path.find(':'), 1, ".");
@@ -84,7 +84,7 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
                         }
 
                         status_type = 1;
-                        response_str = std::string(path) + std::string("created");
+                        response_str = std::string(path) + std::string(" created");
 
                         break;
                     }
@@ -107,7 +107,7 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
                         }
 
                         status_type = 2;
-                        response_str = std::string(path) + std::string("updated");
+                        response_str = std::string(path) + std::string(" updated");
                         break;
                     }
 
@@ -121,7 +121,7 @@ Backup_Server::Backup_Server(boost::asio::io_context& io_context, const tcp::end
                         boost::filesystem::remove(relative_path.data());
 
                         status_type = 3;
-                        response_str = std::string(path) + std::string("erased");
+                        response_str = std::string(path) + std::string(" erased");
                         break;
                     }
 

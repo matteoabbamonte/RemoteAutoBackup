@@ -1,10 +1,13 @@
 #include "Client_Session.h"
 #include <boost/lexical_cast.hpp>
+#include<boost/filesystem.hpp>
 
-Client_Session::Client_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
+Client_Session::Client_Session(tcp::socket &socket) : socket_(std::move(socket)) {
+    create_log_file();
+}
 
-tcp::socket& Client_Session::socket() {
-    return socket_;
+void Client_Session::create_log_file() {
+    boost::filesystem::ofstream("../../log.txt");
 }
 
 void Client_Session::do_read_size() {
@@ -34,15 +37,28 @@ void Client_Session::do_read_body() {
                                 if (!ec)
                                 {
                                     read_msg_.decode_message();
-                                    status_type header = static_cast<status_type>(read_msg_.get_header());
+                                    //change header to status
+                                    auto header = static_cast<status_type>(read_msg_.get_header());
                                     std::string data = read_msg_.get_data();
-                                    responsesQueue.push_response(header, data);
+                                    //statusQueue.push_status(header, data);
+                                    status_handler(header, data);
                                     do_read_size();
                                 }
                                 else {
                                     std::cout << ec.message() << std::endl;
                                 }
                             });
+}
+
+void status_handler(int status, std::string data) {
+    boost::filesystem::ofstream outFile;
+    outFile.open("../../log.txt", std::ios::app);
+    data.append("\n");
+    outFile.write(data.data(), data.size());
+    outFile.close();
+    if (status_type::in_need) {
+        // copiare il comando che faremo nello switch del main
+    }
 }
 
 void Client_Session::do_write() {
@@ -69,6 +85,7 @@ void Client_Session::do_write() {
 
 void Client_Session::enqueue_msg(const Message &msg) {
     write_queue_c.emplace_back(msg);
+    do_write();
 }
 
 void Client_Session::get_credentials() {
@@ -77,10 +94,12 @@ void Client_Session::get_credentials() {
     std::string password;
     std::cout << "Insert password: ";
     std::getline(std::cin, password);
-    Message write_msg_;
-    write_msg_.put_credentials(this->username, password);
-    write_msg_.encode_header(0);
-    write_msg_.zip_message();
-    enqueue_msg(write_msg_);
+    Message write_msg;
+    write_msg.put_credentials(this->username, password);
+    write_msg.encode_header(0);
+    write_msg.zip_message();
+    enqueue_msg(write_msg);
 }
+
+
 
