@@ -18,3 +18,29 @@ void Client::do_connect(const tcp::resolver::results_type& endpoints)
                                    }
                                });
 }
+
+void Client::send_actions(std::string path_to_watch, FileStatus status, bool isFile) {
+    // Process only regular files, all other file types are ignored
+    if(boost::filesystem::is_regular_file(boost::filesystem::path(path_to_watch)) || boost::filesystem::is_directory(boost::filesystem::path(path_to_watch)) || status == FileStatus::erased) {
+        switch(status) {
+            case FileStatus::created:
+                if (isFile) {
+                    std::cout << "File created: " << path_to_watch << '\n';
+                } else std::cout << "Directory created: " << path_to_watch << '\n';
+                break;
+            case FileStatus::modified:
+                if (isFile) {
+                    std::cout << "File modified: " << path_to_watch << '\n';
+                } else std::cout << "Directory modified: " << path_to_watch << '\n';
+                break;
+            case FileStatus::erased:
+                if (isFile) {
+                    std::cout << "File erased: " << path_to_watch << '\n';
+                } else std::cout << "Directory erased: " << path_to_watch << '\n';
+                break;
+            default:
+                std::cout << "Error! Unknown file status.\n";
+        }
+    } else return;
+
+}

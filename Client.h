@@ -2,8 +2,8 @@
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
-//#include <boost/asio.hpp>
 #include "Client_Session.h"
+#include "DirectoryWatcher.h"
 
 using boost::asio::ip::tcp;
 
@@ -16,4 +16,6 @@ class Client {
 
 public:
     Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints);
+
+    static void send_actions(std::string path_to_watch, FileStatus status, bool isFile);
 };
