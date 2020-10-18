@@ -3,7 +3,7 @@
 #include <boost/asio.hpp>
 #include "Client.h"
 
-int main(int argc, char* argv[]) {
+int main (int argc, char* argv[]) {
     if (argc != 3)
     {
         std::cerr << "Usage: Client <host> <port>\n";

@@ -39,7 +39,7 @@ public:
 
     std::string get_data();
 
-    std::tuple<std::string, std::string> get_credentials();
+    boost::tuple<std::string, std::string> get_credentials();
 
     void put_credentials(std::string username, std::string password);
 };
