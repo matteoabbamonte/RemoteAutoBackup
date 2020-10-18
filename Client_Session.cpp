@@ -50,7 +50,7 @@ void Client_Session::do_read_body() {
                             });
 }
 
-void status_handler(int status, std::string data) {
+void Client_Session::status_handler(int status, std::string data) {
     boost::filesystem::ofstream outFile;
     outFile.open("../../log.txt", std::ios::app);
     data.append("\n");

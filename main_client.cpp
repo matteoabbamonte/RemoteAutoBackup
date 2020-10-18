@@ -3,7 +3,13 @@
 #include <boost/asio.hpp>
 #include "Client.h"
 
-int main() {
+int main(int argc, char* argv[]) {
+    if (argc != 3)
+    {
+        std::cerr << "Usage: Client <host> <port>\n";
+        return 1;
+    }
+
     boost::asio::io_context io_context;
 
     boost::asio::ip::tcp::resolver resolver(io_context);
