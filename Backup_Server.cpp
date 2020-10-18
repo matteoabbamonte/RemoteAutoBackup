@@ -167,7 +167,7 @@ public:
 
 
 int main(int argc, char* argv[]) {
-    if (argc < 3)
+    if (argc < 2)
     {
         std::cerr << "Usage: Backup_Server <port>\n";
         return 1;
@@ -176,7 +176,8 @@ int main(int argc, char* argv[]) {
     boost::asio::io_context io_context;
 
     boost::asio::ip::tcp::resolver resolver(io_context);
-    boost::asio::ip::tcp::endpoint entpoint(boost::asio::ip::tcp::v4(), std::atoi(argv[1]));
+    boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::tcp::v4(), std::atoi(argv[1]));
+    Backup_Server bs(io_context, endpoint);
 
     //auto endpoints = resolver.resolve(argv[1], argv[2]);
     io_context.run();
