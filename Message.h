@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <tuple>
 
 class Message {
     boost::property_tree::ptree pt;
@@ -39,7 +40,7 @@ public:
 
     std::string get_data();
 
-    boost::tuple<std::string, std::string> get_credentials();
+    std::tuple<std::string, std::string> get_credentials();
 
     void put_credentials(std::string username, std::string password);
 };
