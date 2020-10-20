@@ -42,5 +42,5 @@ public:
 
     std::tuple<std::string, std::string> get_credentials();
 
-    void put_credentials(std::string username, std::string password);
+    void put_credentials(const std::string& username, const std::string& password);
 };

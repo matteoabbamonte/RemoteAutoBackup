@@ -1,3 +1,4 @@
+#include <iostream>
 #include "Message.h"
 
 Message::Message() {
@@ -16,7 +17,7 @@ void Message::zip_message() {
     std::string message_str;
     boost::property_tree::json_parser::write_json(message_str, pt);
     message_str = std::to_string(message_str.size()) + message_str;
-    //message = std::vector<char>(message_str.begin(), message_str.end());
+    message = std::vector<char>(message_str.begin(), message_str.end());
 }
 
 char* Message::get_pointer() {
@@ -69,7 +70,7 @@ std::tuple<std::string, std::string> Message::get_credentials() {
     return std::make_tuple(username, password);
 }
 
-void Message::put_credentials(std::string username, std::string password) {
+void Message::put_credentials(const std::string& username, const std::string& password) {
     std::string user_pass = username + "||" + password;
     encode_data(user_pass);
 }
