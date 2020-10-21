@@ -22,8 +22,9 @@ class Client {
     }
 
 public:
-    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints) : io_context_(io_context), socket_(io_context), cs(new Client_Session(socket_)) {
+    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints) : io_context_(io_context), socket_(io_context), cs(new Client_Session(io_context)) {
         do_connect(endpoints);
+        //std::cout <<  << std::endl;
         cs->get_credentials();
     }
 

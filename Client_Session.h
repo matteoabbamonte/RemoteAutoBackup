@@ -26,7 +26,7 @@ class Client_Session {
     void create_log_file();
 
 public:
-    Client_Session(tcp::socket &socket);
+    Client_Session(boost::asio::io_context& io_context);
 
     void do_read_size();    //reads the size of the entire message and starts the reading of the action
 

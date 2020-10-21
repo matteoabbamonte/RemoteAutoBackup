@@ -1,7 +1,7 @@
 #pragma once
 
 enum status_type {
-    ok = 0,
+    authorized = 0,
     created = 1,
     updated = 2,
     erased = 3,

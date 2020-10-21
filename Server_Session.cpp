@@ -45,11 +45,25 @@ void Server_Session::do_read_body() {
                                     std::string data = read_msg_.get_data();
                                     //if header == login then read data, take username and password, check db and insert username in clients map
                                     if (header == action_type::login) {
+                                        //Preparing response message syntax
+                                        int status_type;
+                                        std::string response_str;
+                                        Message response_msg;
+
                                         auto credentials = read_msg_.get_credentials();
                                         bool found = Server_Session::check_database(std::get<0>(credentials), std::get<1>(credentials));
                                         if (found) {
                                             username = std::get<0>(credentials);
+                                            status_type = 0;
+                                            response_str = std::string("Access granted");
+                                        } else {
+                                            status_type = 6;
+                                            response_str = std::string("Access denied, try again");
                                         }
+                                        response_msg.encode_header(status_type);
+                                        response_msg.encode_data(response_str);
+                                        response_msg.zip_message();
+                                        enqueue_msg(response_msg);
                                     } else {
                                         commonSession->push_op(username, header, data, socket_);
                                     }

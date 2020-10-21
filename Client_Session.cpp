@@ -2,7 +2,7 @@
 #include <boost/lexical_cast.hpp>
 #include<boost/filesystem.hpp>
 
-Client_Session::Client_Session(tcp::socket &socket) : socket_(std::move(socket)) {
+Client_Session::Client_Session(boost::asio::io_context& io_context) : socket_(io_context) {
     create_log_file();
 }
 

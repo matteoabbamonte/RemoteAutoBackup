@@ -3,6 +3,7 @@
 
 Message::Message() {
     size = new char[4];
+    msg_ptr = nullptr;
 }
 
 void Message::encode_header(int header) {
@@ -14,10 +15,11 @@ void Message::encode_data(std::string& data) {
 }
 
 void Message::zip_message() {
-    std::string message_str;
-    boost::property_tree::json_parser::write_json(message_str, pt);
-    message_str = std::to_string(message_str.size()) + message_str;
-    message = std::vector<char>(message_str.begin(), message_str.end());
+    std::stringstream message_stream;
+    boost::property_tree::json_parser::write_json(message_stream, pt);
+    std::string message_string = message_stream.str();
+    message_string = std::to_string(message_string.size()) + message_string;
+    message = std::vector<char>(message_string.begin(), message_string.end());
 }
 
 char* Message::get_pointer() {
@@ -71,7 +73,7 @@ std::tuple<std::string, std::string> Message::get_credentials() {
 }
 
 void Message::put_credentials(const std::string& username, const std::string& password) {
-    std::string user_pass = username + "||" + password;
+    std::string user_pass = std::string(username) + std::string("||") + std::string(password);
     encode_data(user_pass);
 }
 

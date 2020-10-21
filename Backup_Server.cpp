@@ -1,9 +1,7 @@
 #include <iostream>
 #include <boost/asio.hpp>
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/thread.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/asio/thread_pool.hpp>
 #include "Server_Session.h"
 
 using boost::asio::ip::tcp;
@@ -16,6 +14,7 @@ class Backup_Server {
     void do_accept() {
         acceptor.async_accept(
                 [this](boost::system::error_code ec, tcp::socket socket) {
+                    std::cout << "cazzo" << std::endl;
                     if (!ec) {
                         std::make_shared<Server_Session>(socket)->start();
                     }
@@ -26,8 +25,8 @@ class Backup_Server {
 public:
     Backup_Server(boost::asio::io_context &io_context, const tcp::endpoint &endpoint) : acceptor(io_context, endpoint),
                                                                                         active(true) {
-        boost::asio::thread_pool pool;
         do_accept();
+        boost::asio::thread_pool pool;
         boost::asio::post(pool, [this]() {
             while (active) {
                 auto operation = commonSession.pop_op();
