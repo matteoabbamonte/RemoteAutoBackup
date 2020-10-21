@@ -13,7 +13,7 @@
 using boost::asio::ip::tcp;
 using boost::property_tree::ptree;
 
-class Server_Session {
+class Server_Session : public std::enable_shared_from_this<Server_Session> {
     tcp::socket socket_;
     std::string username;
     Message read_msg_;

@@ -15,25 +15,9 @@ void Server_Session::start() {
 }
 
 void Server_Session::do_read_size() {
-    auto self(std::shared_ptr<Server_Session>(this));
-    //int size;
-
-    socket_.async_read_some(boost::asio::buffer(read_msg_.get_size_ptr(), 10),
-                            [this, self](boost::system::error_code ec, std::size_t /*length*/)
-                            {
-                                if (!ec && read_msg_.decode_size()) {
-                                    do_read_body();
-                                } else {
-                                    std::cout << read_msg_.get_size_ptr() << std::endl;
-                                    //std::cout << read_msg_.get_msg_ptr() << std::endl;
-                                    std::cout << "Error inside do_read_size: ";
-                                    std::cerr << ec.message() << std::endl;
-                                    //std::cout << "Size is not a number" << std::endl;
-                                }
-                            });
+    auto self(shared_from_this());
     /*
-    boost::asio::async_read(socket_,
-                            boost::asio::buffer(read_msg_.get_size_ptr(), 10),
+    socket_.async_read_some(boost::asio::buffer(read_msg_.get_size_ptr(), sizeof(int)),
                             [this, self](boost::system::error_code ec, std::size_t /*length)
                             {
                                 if (!ec && read_msg_.decode_size()) {
@@ -47,12 +31,27 @@ void Server_Session::do_read_size() {
                                 }
                             });
     */
+    boost::asio::async_read(socket_,
+                            boost::asio::buffer(&read_msg_.int_size, sizeof(int)),
+                            [this, self](boost::system::error_code ec, std::size_t /*length*/)
+                            {
+                                if (!ec && read_msg_.int_size > 0) {
+                                    do_read_body();
+                                } else {
+                                    //std::cout << read_msg_.get_size_int() << std::endl;
+                                    //std::cout << read_msg_.get_msg_ptr() << std::endl;
+                                    std::cout << "Error inside do_read_size: ";
+                                    std::cerr << ec.message() << std::endl;
+                                    //std::cout << "Size is not a number" << std::endl;
+                                }
+                            });
+
 }
 
 void Server_Session::do_read_body() {
-    auto self(std::shared_ptr<Server_Session>(this));
+    auto self(shared_from_this());
     boost::asio::async_read(socket_,
-                            boost::asio::buffer(read_msg_.get_msg_ptr(), read_msg_.get_size_int()),
+                            boost::asio::buffer(read_msg_.get_msg_ptr(), read_msg_.int_size),
                             [this, self](boost::system::error_code ec, std::size_t /*length*/)
                             {
                                 if (!ec)
@@ -85,18 +84,18 @@ void Server_Session::do_read_body() {
                                         commonSession->push_op(username, header, data, socket_);
                                     }
                                     do_read_size();
-                                }
-                                else {
+                                } else {
+                                    std::cout << "Error inside do_read_body: ";
                                     std::cout << ec.message() << std::endl;
                                 }
                             });
 }
 
 void Server_Session::do_write() {
-    auto self(std::shared_ptr<Server_Session>(this));
+    auto self(shared_from_this());
     boost::asio::async_write(socket_,
                              boost::asio::buffer(write_queue_s.front().get_msg_ptr(),
-                                                 write_queue_s.front().get_size_int()),
+                                                 write_queue_s.front().int_size),
                              [this, self](boost::system::error_code ec, std::size_t /*length*/)
                              {
                                  if (!ec)
@@ -109,6 +108,7 @@ void Server_Session::do_write() {
                                  }
                                  else
                                  {
+                                     std::cout << "Error inside do_write: ";
                                      std::cout << ec.message() << std::endl;
                                  }
                              });

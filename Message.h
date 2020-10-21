@@ -12,6 +12,8 @@ class Message {
     char *msg_ptr;
 
 public:
+    int int_size;
+
     Message();
 
     virtual ~Message();

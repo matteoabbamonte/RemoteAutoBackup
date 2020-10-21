@@ -2,8 +2,8 @@
 #include "Message.h"
 
 Message::Message() {
-    size = new char[4];
-    //msg_ptr = nullptr;
+    size = new char[sizeof(int)];
+    msg_ptr = nullptr;
 }
 
 void Message::encode_header(int header) {
@@ -17,11 +17,14 @@ void Message::encode_data(std::string& data) {
 void Message::zip_message() {
     std::stringstream message_stream;
     boost::property_tree::json_parser::write_json(message_stream, pt);
-    auto message_string = message_stream.str();
-    message_string = std::to_string(message_string.size()) + std::string(message_string);
-    //message = std::vector<char>(message_string.begin(), message_string.end());
+    std::string str_dim(std::to_string(message_stream.str().size()), sizeof(int));
+    auto message_string = std::string(str_dim) + std::string(message_stream.str());
     msg_ptr = new char[message_string.size()+1];
+    //strcpy(size, std::to_string(message_string.size()).c_str());
+    //size[sizeof(int)] = '\n';
+    int_size = message_string.size();
     strcpy(msg_ptr, message_string.c_str());
+    msg_ptr[int_size] = '\n';
 }
 
 /*
@@ -43,20 +46,21 @@ char* Message::get_msg_ptr() {
 }
 
 bool Message::decode_size() {
-    size[sizeof(int)] = '\n';
-    if (std::atoi(size)) {
-        msg_ptr = new char[std::atoi(size)+1];
+    size[3] = '\n';
+    if (std::stoi(std::string(size)) > 0) {
+        msg_ptr = new char[std::stoi(std::string(size))+1];
         return true;
     }
     return false;
 }
 
 int Message::get_size_int() {
-    return std::atoi(size);
+    return std::stoi(std::string(size));
 }
 
 void Message::decode_message() {
     std::stringstream stream;
+    msg_ptr[get_size_int()] = '\n';
     stream << msg_ptr;
     boost::property_tree::json_parser::read_json(stream, pt);
 }
@@ -83,7 +87,7 @@ void Message::put_credentials(const std::string& username, const std::string& pa
 }
 
 Message::~Message() {
-    delete [] size;
+    //delete [] size;
     //delete [] msg_ptr;
 }
 

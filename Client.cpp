@@ -1,9 +1,9 @@
 #include <iostream>
 #include <boost/asio.hpp>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/ip/tcp.hpp>
+#include <deque>
 #include "DirectoryWatcher.h"
-#include "Client_Session.h"
+#include "Message.h"
+#include "Headers.h"
 
 using boost::asio::ip::tcp;
 
@@ -34,14 +34,12 @@ class Client {
     }
 
     void do_read_size() {
-        auto self(std::shared_ptr<Client>(this));
-        int size;
         std::cout << "Inside do_read_size" << std::endl;
         boost::asio::async_read(socket_,
-                                boost::asio::buffer(read_msg_.get_size_ptr(), sizeof(size)),
-                                [this, self](boost::system::error_code ec, std::size_t /*length*/)
+                                boost::asio::buffer(&read_msg_.int_size, sizeof(int)),
+                                [this](boost::system::error_code ec, std::size_t /*length*/)
                                 {
-                                    if (!ec && read_msg_.decode_size())
+                                    if (!ec && read_msg_.int_size > 0)
                                     {
                                         std::cout << "Inside if" << std::endl;
                                         do_read_body();
@@ -54,10 +52,9 @@ class Client {
     }
 
     void do_read_body() {
-        auto self(std::shared_ptr<Client>(this));
         boost::asio::async_read(socket_,
-                                boost::asio::buffer(read_msg_.get_msg_ptr(), read_msg_.get_size_int()),
-                                [this, self](boost::system::error_code ec, std::size_t /*length*/)
+                                boost::asio::buffer(read_msg_.get_msg_ptr(), read_msg_.int_size),
+                                [this](boost::system::error_code ec, std::size_t /*length*/)
                                 {
                                     if (!ec)
                                     {
@@ -81,18 +78,17 @@ class Client {
         data.append("\n");
         outFile.write(data.data(), data.size());
         outFile.close();
-        if (status_type::in_need) {
+        if (status == status_type::in_need) {
             // copiare il comando che faremo nello switch del main
         }
     }
 
     void do_write() {
-        auto self(std::shared_ptr<Client>(this));
         std::cout << "sono passato dalla write" << std::endl;
         boost::asio::async_write(socket_,
                                  boost::asio::buffer(write_queue_c.front().get_msg_ptr(),
-                                                     write_queue_c.front().get_size_int()),
-                                 [this, self](boost::system::error_code ec, std::size_t /*length*/)
+                                                     write_queue_c.front().int_size),
+                                 [this](boost::system::error_code ec, std::size_t /*length*/)
                                  {
                                      if (!ec)
                                      {

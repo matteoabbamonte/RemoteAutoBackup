@@ -24,7 +24,7 @@ class Backup_Server {
                     }
                     do_accept();
                 });
-        std::cout << "After async_accept" << std::endl;
+        //std::cout << "After async_accept" << std::endl;
     }
 
 public:
