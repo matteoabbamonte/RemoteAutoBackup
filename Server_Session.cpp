@@ -32,10 +32,11 @@ void Server_Session::do_read_size() {
                             });
     */
     boost::asio::async_read(socket_,
-                            boost::asio::buffer(&read_msg_.int_size, sizeof(int)),
+                            boost::asio::buffer(read_msg_.get_size_ptr(), 10),
                             [this, self](boost::system::error_code ec, std::size_t /*length*/)
                             {
-                                if (!ec && read_msg_.int_size > 0) {
+                                if (!ec && read_msg_.decode_size()) {
+                                    std::cout << "Size decoded, reading body" << std::endl;
                                     do_read_body();
                                 } else {
                                     //std::cout << read_msg_.get_size_int() << std::endl;
@@ -51,12 +52,14 @@ void Server_Session::do_read_size() {
 void Server_Session::do_read_body() {
     auto self(shared_from_this());
     boost::asio::async_read(socket_,
-                            boost::asio::buffer(read_msg_.get_msg_ptr(), read_msg_.int_size),
+                            boost::asio::buffer(read_msg_.get_msg_ptr(), read_msg_.get_size_int()),
                             [this, self](boost::system::error_code ec, std::size_t /*length*/)
                             {
                                 if (!ec)
                                 {
+                                    std::cout << "Prima della decode" << std::endl;
                                     read_msg_.decode_message();
+                                    std::cout << "Dopo la decode" << std::endl;
                                     action_type header = static_cast<action_type>(read_msg_.get_header());
                                     std::string data = read_msg_.get_data();
                                     //if header == login then read data, take username and password, check db and insert username in clients map
@@ -95,7 +98,7 @@ void Server_Session::do_write() {
     auto self(shared_from_this());
     boost::asio::async_write(socket_,
                              boost::asio::buffer(write_queue_s.front().get_msg_ptr(),
-                                                 write_queue_s.front().int_size),
+                                                 write_queue_s.front().get_size_int()),
                              [this, self](boost::system::error_code ec, std::size_t /*length*/)
                              {
                                  if (!ec)

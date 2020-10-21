@@ -2,7 +2,7 @@
 #include "Message.h"
 
 Message::Message() {
-    size = new char[sizeof(int)];
+    size = new char[10];
     msg_ptr = nullptr;
 }
 
@@ -17,25 +17,16 @@ void Message::encode_data(std::string& data) {
 void Message::zip_message() {
     std::stringstream message_stream;
     boost::property_tree::json_parser::write_json(message_stream, pt);
-    std::string str_dim(std::to_string(message_stream.str().size()), sizeof(int));
-    auto message_string = std::string(str_dim) + std::string(message_stream.str());
+    std::string message_string = message_stream.str();
+    std::string str_dim = std::to_string(std::strlen(message_string.c_str()));
+    str_dim.insert(str_dim.begin(), 10 - str_dim.length(), '0');
+    message_string = str_dim + message_string;
     msg_ptr = new char[message_string.size()+1];
-    //strcpy(size, std::to_string(message_string.size()).c_str());
-    //size[sizeof(int)] = '\n';
-    int_size = message_string.size();
+    strcpy(size, str_dim.c_str());
+    size[10] = '\0';
     strcpy(msg_ptr, message_string.c_str());
-    msg_ptr[int_size] = '\n';
+    msg_ptr[message_string.size()] = '\0';
 }
-
-/*
-char* Message::get_pointer() {
-    return reinterpret_cast<char*>(&message[0]);
-}
-
-std::size_t Message::get_msg_length() {
-    return message.size();
-}
-*/
 
 char* Message::get_size_ptr() {
     return size;
@@ -46,7 +37,7 @@ char* Message::get_msg_ptr() {
 }
 
 bool Message::decode_size() {
-    size[3] = '\n';
+    size[10] = '\0';
     if (std::stoi(std::string(size)) > 0) {
         msg_ptr = new char[std::stoi(std::string(size))+1];
         return true;
@@ -60,7 +51,7 @@ int Message::get_size_int() {
 
 void Message::decode_message() {
     std::stringstream stream;
-    msg_ptr[get_size_int()] = '\n';
+    msg_ptr[get_size_int()] = '\0';
     stream << msg_ptr;
     boost::property_tree::json_parser::read_json(stream, pt);
 }
