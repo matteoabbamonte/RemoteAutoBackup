@@ -15,10 +15,13 @@ class Client {
     std::string username;
 
     void do_connect(const tcp::resolver::results_type& endpoints) {
+        std::cout << "Trying to connect" << std::endl;
         boost::asio::async_connect(socket_, endpoints,
-                [this](boost::system::error_code ec, const tcp::endpoint) {
-                    std::cout << "Entro" << std::endl;
+                [this](boost::system::error_code ec, const tcp::endpoint&) {
+                    std::cout << "Inside async_connect" << std::endl;
                     if (!ec) {
+                        std::cout << "Inside if" << std::endl;
+                        get_credentials();
                         do_read_size();
                     } else {
                         std::cerr << ec.message() << std::endl;
@@ -33,12 +36,14 @@ class Client {
     void do_read_size() {
         auto self(std::shared_ptr<Client>(this));
         int size;
+        std::cout << "Inside do_read_size" << std::endl;
         boost::asio::async_read(socket_,
                                 boost::asio::buffer(read_msg_.get_size_ptr(), sizeof(size)),
                                 [this, self](boost::system::error_code ec, std::size_t /*length*/)
                                 {
                                     if (!ec && read_msg_.decode_size())
                                     {
+                                        std::cout << "Inside if" << std::endl;
                                         do_read_body();
                                     }
                                     else
@@ -83,6 +88,7 @@ class Client {
 
     void do_write() {
         auto self(std::shared_ptr<Client>(this));
+        std::cout << "sono passato dalla write" << std::endl;
         boost::asio::async_write(socket_,
                                  boost::asio::buffer(write_queue_c.front().get_msg_ptr(),
                                                      write_queue_c.front().get_size_int()),
@@ -125,7 +131,7 @@ public:
     Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints) : io_context_(io_context), socket_(io_context) {
         do_connect(endpoints);
         //std::cout <<  << std::endl;
-        get_credentials();
+
     }
 
     static void send_actions(std::string path_to_watch, FileStatus status, bool isFile) {

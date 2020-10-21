@@ -16,20 +16,37 @@ void Server_Session::start() {
 
 void Server_Session::do_read_size() {
     auto self(std::shared_ptr<Server_Session>(this));
-    int size;
-    boost::asio::async_read(socket_,
-                            boost::asio::buffer(read_msg_.get_size_ptr(), sizeof(size)),
+    //int size;
+
+    socket_.async_read_some(boost::asio::buffer(read_msg_.get_size_ptr(), 10),
                             [this, self](boost::system::error_code ec, std::size_t /*length*/)
                             {
-                                if (!ec && read_msg_.decode_size())
-                                {
+                                if (!ec && read_msg_.decode_size()) {
                                     do_read_body();
-                                }
-                                else
-                                {
-                                    std::cout << "Size is not a number" << std::endl;
+                                } else {
+                                    std::cout << read_msg_.get_size_ptr() << std::endl;
+                                    //std::cout << read_msg_.get_msg_ptr() << std::endl;
+                                    std::cout << "Error inside do_read_size: ";
+                                    std::cerr << ec.message() << std::endl;
+                                    //std::cout << "Size is not a number" << std::endl;
                                 }
                             });
+    /*
+    boost::asio::async_read(socket_,
+                            boost::asio::buffer(read_msg_.get_size_ptr(), 10),
+                            [this, self](boost::system::error_code ec, std::size_t /*length)
+                            {
+                                if (!ec && read_msg_.decode_size()) {
+                                    do_read_body();
+                                } else {
+                                    std::cout << read_msg_.get_size_ptr() << std::endl;
+                                    //std::cout << read_msg_.get_msg_ptr() << std::endl;
+                                    std::cout << "Error inside do_read_size: ";
+                                    std::cerr << ec.message() << std::endl;
+                                    //std::cout << "Size is not a number" << std::endl;
+                                }
+                            });
+    */
 }
 
 void Server_Session::do_read_body() {

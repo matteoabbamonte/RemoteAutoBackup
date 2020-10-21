@@ -12,14 +12,19 @@ class Backup_Server {
     bool active;
 
     void do_accept() {
+        std::cout << "Inside do_accept" << std::endl;
         acceptor.async_accept(
                 [this](boost::system::error_code ec, tcp::socket socket) {
-                    std::cout << "cazzo" << std::endl;
+                    std::cout << "Inside async accept" << std::endl;
                     if (!ec) {
                         std::make_shared<Server_Session>(socket)->start();
+                    } else {
+                        std::cout << "Error inside do_accept: ";
+                        std::cerr << ec.message() << std::endl;
                     }
                     do_accept();
                 });
+        std::cout << "After async_accept" << std::endl;
     }
 
 public:
