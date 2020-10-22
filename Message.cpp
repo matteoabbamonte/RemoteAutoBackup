@@ -18,10 +18,11 @@ void Message::zip_message() {
     std::stringstream message_stream;
     boost::property_tree::json_parser::write_json(message_stream, pt);
     std::string message_string = message_stream.str();
-    std::string str_dim = std::to_string(std::strlen(message_string.c_str()));
+    u_long dim = message_string.size() + 4 * pt.size();
+    std::string str_dim = std::to_string(dim);
     str_dim.insert(str_dim.begin(), 10 - str_dim.length(), '0');
     message_string = str_dim + message_string;
-    msg_ptr = new char[message_string.size()+1];
+    msg_ptr = new char[10 + dim + 1];
     strcpy(size, str_dim.c_str());
     size[10] = '\0';
     strcpy(msg_ptr, message_string.c_str());

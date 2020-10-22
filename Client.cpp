@@ -87,7 +87,7 @@ class Client {
         std::cout << "sono passato dalla write" << std::endl;
         boost::asio::async_write(socket_,
                                  boost::asio::buffer(write_queue_c.front().get_msg_ptr(),
-                                                     write_queue_c.front().get_size_int()),
+                                                     write_queue_c.front().get_size_int()+2),
                                  [this](boost::system::error_code ec, std::size_t /*length*/)
                                  {
                                      if (!ec)
