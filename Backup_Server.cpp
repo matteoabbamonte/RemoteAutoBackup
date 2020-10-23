@@ -24,7 +24,6 @@ class Backup_Server {
                     }
                     do_accept();
                 });
-        //std::cout << "After async_accept" << std::endl;
     }
 
 public:
@@ -183,7 +182,6 @@ int main(int argc, char* argv[]) {
     boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::tcp::v4(), std::atoi(argv[1]));
     Backup_Server bs(io_context, endpoint);
 
-    //auto endpoints = resolver.resolve(argv[1], argv[2]);
     io_context.run();
 
     return 0;

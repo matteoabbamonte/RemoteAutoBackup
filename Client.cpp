@@ -13,7 +13,7 @@ class Client {
     Message read_msg_;
     std::deque<Message> write_queue_c;
     std::string username;
-    bool running;
+    bool & running;
 
     void do_connect(const tcp::resolver::results_type& endpoints) {
         std::cout << "Trying to connect..." << std::endl;
@@ -51,7 +51,7 @@ class Client {
                                         std::cout << "Error while reading message size: ";
                                         std::cout << ec.message() << std::endl;
                                         //socket_.close();
-                                        //running = false;
+                                        running = false;
                                     }
                                 });
     }
@@ -68,8 +68,7 @@ class Client {
                                         auto header = static_cast<status_type>(read_msg_.get_header());
                                         std::string data = read_msg_.get_data();
                                         //statusQueue.push_status(header, data);
-                                        status_handler(header, data);
-                                        do_read_size();
+                                        if (status_handler(header, data)) do_read_size();
                                     }
                                     else {
                                         std::cout << "Error while reding message body: ";
@@ -80,8 +79,9 @@ class Client {
                                 });
     }
 
-    void status_handler(int status, std::string data) {
+    bool status_handler(int status, std::string data) {
         boost::filesystem::ofstream outFile;
+        bool return_value = true;
         outFile.open("../../log.txt", std::ios::app);
         data.append("\n");
         outFile.write(data.data(), data.size());
@@ -90,9 +90,11 @@ class Client {
             // copiare il comando che faremo nello switch del main
         } else if (status == status_type::unauthorized) {
             std::cout << "Unauthorized." << std::endl;
+            //socket_.cancel();
             socket_.close();
-            running = false;
+            running = return_value = false;
         }
+        return return_value;
     }
 
     void do_write() {
@@ -139,7 +141,6 @@ class Client {
 
 public:
     Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running) : io_context_(io_context), socket_(io_context), running(running) {
-
         do_connect(endpoints);
     }
 
@@ -172,7 +173,7 @@ public:
     void close() {
         boost::asio::post(io_context_, [this]() {
             socket_.close();
-            running = false;
+            //running = false;
         });
     }
 };

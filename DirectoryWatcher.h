@@ -16,7 +16,7 @@ struct RecPath {
 };
 
 class DirectoryWatcher {
-    bool running;
+    bool & running;
     std::string path_to_watch;
     std::unordered_map<std::string, RecPath> paths_;
     // Time interval at which we check the base folder for changes
