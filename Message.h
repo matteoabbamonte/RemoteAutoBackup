@@ -7,13 +7,13 @@
 
 class Message {
     boost::property_tree::ptree pt;
-    char *size;   // 4B dim int
+    char *size;
     char *msg_ptr;
 
 public:
     Message();
 
-    virtual ~Message();
+    ~Message();
 
     void encode_header(int header);
 
@@ -22,6 +22,8 @@ public:
     void zip_message();
 
     char* get_size_ptr();   //get pointer to the beginning of the size buffer
+
+    char* get_msg_ptr(int size_b);    //get pointer to the beginning of the message buffer, initializing the pointer to the char array
 
     char* get_msg_ptr();    //get pointer to the beginning of the message buffer
 

@@ -2,7 +2,7 @@
 #include "Message.h"
 
 Message::Message() {
-    size = new char[10];
+    size = new char[11];
     msg_ptr = nullptr;
 }
 
@@ -22,15 +22,24 @@ void Message::zip_message() {
     std::string str_dim = std::to_string(dim);
     str_dim.insert(str_dim.begin(), 10 - str_dim.length(), '0');
     message_string = str_dim + message_string;
-    msg_ptr = new char[10 + dim + 1];
-    strcpy(size, str_dim.c_str());
-    size[10] = '\0';
-    strcpy(msg_ptr, message_string.c_str());
-    msg_ptr[message_string.size()] = '\0';
+    msg_ptr = new char[message_string.size() + 1];
+    strncpy(size, str_dim.c_str(), 10);
+    strncpy(msg_ptr, message_string.c_str(), message_string.size());
+    int counter = 0;
+    for (int i = 10; msg_ptr[i] != '\0'; i++) {
+        std::cout << msg_ptr[i];
+        counter++;
+    }
+    std::cout << "\nNumber of chars: " << counter << std::endl;
 }
 
 char* Message::get_size_ptr() {
     return size;
+}
+
+char* Message::get_msg_ptr(int size_b) {
+    msg_ptr = new char[size_b+1];
+    return msg_ptr;
 }
 
 char* Message::get_msg_ptr() {

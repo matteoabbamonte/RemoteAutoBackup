@@ -33,7 +33,7 @@ void Server_Session::do_read_size() {
 
 void Server_Session::do_read_body() {
     auto self(shared_from_this());
-    socket_.async_read_some(boost::asio::buffer(read_msg_.get_msg_ptr(), read_msg_.get_size_int()+2),
+    socket_.async_read_some(boost::asio::buffer(read_msg_.get_msg_ptr(read_msg_.get_size_int()), read_msg_.get_size_int()),
                             [this, self](boost::system::error_code ec, std::size_t /*length*/)
                             {
                                 if (!ec) {

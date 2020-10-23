@@ -53,7 +53,7 @@ class Client {
 
     void do_read_body() {
         boost::asio::async_read(socket_,
-                                boost::asio::buffer(read_msg_.get_msg_ptr(), read_msg_.get_size_int()),
+                                boost::asio::buffer(read_msg_.get_msg_ptr(read_msg_.get_size_int()), read_msg_.get_size_int()),
                                 [this](boost::system::error_code ec, std::size_t /*length*/)
                                 {
                                     if (!ec)
@@ -87,7 +87,7 @@ class Client {
         std::cout << "sono passato dalla write" << std::endl;
         boost::asio::async_write(socket_,
                                  boost::asio::buffer(write_queue_c.front().get_msg_ptr(),
-                                                     write_queue_c.front().get_size_int()+2),
+                                                     write_queue_c.front().get_size_int()),
                                  [this](boost::system::error_code ec, std::size_t /*length*/)
                                  {
                                      if (!ec)
