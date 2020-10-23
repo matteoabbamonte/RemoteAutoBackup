@@ -161,7 +161,7 @@ public:
                 response_msg.encode_header(status_type);
                 response_msg.encode_data(response_str);
                 response_msg.zip_message();
-                serverSession.enqueue_msg(response_msg);
+                serverSession.enqueue_msg(response_msg, false);
             }
         });
     };

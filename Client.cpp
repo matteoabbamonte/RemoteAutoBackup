@@ -52,8 +52,7 @@ class Client {
     }
 
     void do_read_body() {
-        boost::asio::async_read(socket_,
-                                boost::asio::buffer(read_msg_.get_msg_ptr(read_msg_.get_size_int()), read_msg_.get_size_int()),
+        socket_.async_read_some(boost::asio::buffer(read_msg_.get_msg_ptr(read_msg_.get_size_int()), read_msg_.get_size_int()),
                                 [this](boost::system::error_code ec, std::size_t /*length*/)
                                 {
                                     if (!ec)
@@ -80,6 +79,8 @@ class Client {
         outFile.close();
         if (status == status_type::in_need) {
             // copiare il comando che faremo nello switch del main
+        } else if (status == status_type::unauthorized) {
+            //uscire nel main e ricominciare
         }
     }
 

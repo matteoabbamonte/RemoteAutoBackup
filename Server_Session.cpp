@@ -28,7 +28,6 @@ void Server_Session::do_read_size() {
                                     std::cerr << ec.message() << std::endl;
                                 }
                             });
-
 }
 
 void Server_Session::do_read_body() {
@@ -62,7 +61,7 @@ void Server_Session::do_read_body() {
                                         response_msg.encode_header(status_type);
                                         response_msg.encode_data(response_str);
                                         response_msg.zip_message();
-                                        enqueue_msg(response_msg);
+                                        enqueue_msg(response_msg, !found);
                                     } else {
                                         commonSession->push_op(username, header, data, socket_);
                                     }
@@ -176,7 +175,8 @@ std::vector<std::string> Server_Session::compare_paths(ptree client_pt) {
     return response_paths;
 }
 
-void Server_Session::enqueue_msg(const Message &msg) {
+void Server_Session::enqueue_msg(const Message &msg, bool close) {
     write_queue_s.emplace_back(msg);
     do_write();
+    if (close) socket_.close();
 }

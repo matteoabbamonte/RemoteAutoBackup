@@ -40,7 +40,7 @@ public:
 
     bool check_database(std::string username, std::string password);
 
-    void enqueue_msg(const Message& msg);
+    void enqueue_msg(const Message& msg, bool close);
 
     bool get_paths();
 
