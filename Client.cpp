@@ -13,18 +13,21 @@ class Client {
     Message read_msg_;
     std::deque<Message> write_queue_c;
     std::string username;
+    bool running;
 
     void do_connect(const tcp::resolver::results_type& endpoints) {
-        std::cout << "Trying to connect" << std::endl;
+        std::cout << "Trying to connect..." << std::endl;
         boost::asio::async_connect(socket_, endpoints,
                 [this](boost::system::error_code ec, const tcp::endpoint&) {
                     std::cout << "Inside async_connect" << std::endl;
                     if (!ec) {
-                        std::cout << "Inside if" << std::endl;
                         get_credentials();
                         do_read_size();
                     } else {
+                        std::cout << "Error while connecting: ";
                         std::cerr << ec.message() << std::endl;
+                        socket_.close();
+                        running = false;
                     }
                 });
     }
@@ -34,24 +37,27 @@ class Client {
     }
 
     void do_read_size() {
-        std::cout << "Inside do_read_size" << std::endl;
+        std::cout << "Reading message size..." << std::endl;
         boost::asio::async_read(socket_,
                                 boost::asio::buffer(read_msg_.get_size_ptr(), 10),
                                 [this](boost::system::error_code ec, std::size_t /*length*/)
                                 {
                                     if (!ec && read_msg_.decode_size())
                                     {
-                                        std::cout << "Inside if" << std::endl;
                                         do_read_body();
                                     }
                                     else
                                     {
-                                        std::cout << "Size is not a number" << std::endl;
+                                        std::cout << "Error while reading message size: ";
+                                        std::cout << ec.message() << std::endl;
+                                        //socket_.close();
+                                        //running = false;
                                     }
                                 });
     }
 
     void do_read_body() {
+        std::cout << "Reading message body..." << std::endl;
         socket_.async_read_some(boost::asio::buffer(read_msg_.get_msg_ptr(read_msg_.get_size_int()), read_msg_.get_size_int()),
                                 [this](boost::system::error_code ec, std::size_t /*length*/)
                                 {
@@ -66,7 +72,10 @@ class Client {
                                         do_read_size();
                                     }
                                     else {
+                                        std::cout << "Error while reding message body: ";
                                         std::cout << ec.message() << std::endl;
+                                        socket_.close();
+                                        running = false;
                                     }
                                 });
     }
@@ -80,12 +89,14 @@ class Client {
         if (status == status_type::in_need) {
             // copiare il comando che faremo nello switch del main
         } else if (status == status_type::unauthorized) {
-            //uscire nel main e ricominciare
+            std::cout << "Unauthorized." << std::endl;
+            socket_.close();
+            running = false;
         }
     }
 
     void do_write() {
-        std::cout << "sono passato dalla write" << std::endl;
+        std::cout << "Writing message..." << std::endl;
         boost::asio::async_write(socket_,
                                  boost::asio::buffer(write_queue_c.front().get_msg_ptr(),
                                                      write_queue_c.front().get_size_int()),
@@ -101,7 +112,9 @@ class Client {
                                      }
                                      else
                                      {
+                                         std::cout << "Error while writing: ";
                                          std::cout << ec.message() << std::endl;
+                                         socket_.close();
                                      }
                                  });
     }
@@ -125,10 +138,9 @@ class Client {
     }
 
 public:
-    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints) : io_context_(io_context), socket_(io_context) {
-        do_connect(endpoints);
-        //std::cout <<  << std::endl;
+    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running) : io_context_(io_context), socket_(io_context), running(running) {
 
+        do_connect(endpoints);
     }
 
     static void send_actions(std::string path_to_watch, FileStatus status, bool isFile) {
@@ -156,6 +168,13 @@ public:
         } else return;
 
     }
+
+    void close() {
+        boost::asio::post(io_context_, [this]() {
+            socket_.close();
+            running = false;
+        });
+    }
 };
 
 
@@ -171,10 +190,12 @@ int main(int argc, char* argv[]) {
     boost::asio::ip::tcp::resolver resolver(io_context);
     auto endpoints = resolver.resolve(argv[1], argv[2]);
 
-    // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
-    DirectoryWatcher fw{"../../root", std::chrono::milliseconds(5000)};
+    bool running = true;
 
-    Client cl(io_context, endpoints);
+    Client cl(io_context, endpoints, running);
+
+    // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
+    DirectoryWatcher fw{"../../root", std::chrono::milliseconds(5000), running};
 
     std::thread t([&io_context](){ io_context.run(); });
 
