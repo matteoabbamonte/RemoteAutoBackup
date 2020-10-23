@@ -25,12 +25,6 @@ void Message::zip_message() {
     msg_ptr = new char[message_string.size() + 1];
     strncpy(size, str_dim.c_str(), 10);
     strncpy(msg_ptr, message_string.c_str(), message_string.size());
-    int counter = 0;
-    for (int i = 10; msg_ptr[i] != '\0'; i++) {
-        std::cout << msg_ptr[i];
-        counter++;
-    }
-    std::cout << "\nNumber of chars: " << counter << std::endl;
 }
 
 char* Message::get_size_ptr() {
@@ -56,7 +50,8 @@ bool Message::decode_size() {
 }
 
 int Message::get_size_int() {
-    return std::stoi(std::string(size));
+    int size_b = std::stoi(std::string(size));
+    return size_b+2;
 }
 
 void Message::decode_message() {
