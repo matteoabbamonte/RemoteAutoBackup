@@ -12,7 +12,6 @@ class Client {
     tcp::socket socket_;
     Message read_msg_;
     std::deque<Message> write_queue_c;
-    std::string username;
     bool & running;
 
     void do_connect(const tcp::resolver::results_type& endpoints) {
@@ -127,13 +126,14 @@ class Client {
     }
 
     void get_credentials() {
+        std::string username;
         std::cout << "Insert username: ";
-        std::getline(std::cin, this->username);
+        std::cin >> username;
         std::string password;
         std::cout << "Insert password: ";
-        std::getline(std::cin, password);
+        std::cin >> password;
         Message write_msg;
-        write_msg.put_credentials(this->username, password);
+        write_msg.put_credentials(username, password);
         write_msg.encode_header(0);
         write_msg.zip_message();
         enqueue_msg(write_msg);
@@ -178,33 +178,55 @@ public:
     }
 };
 
+bool stop() {
+    std::string stop;
+    do {
+        std::cout << "Do you want to reconnect? (y/n): ";
+        std::cin >> stop;
+    } while (stop != "y" && stop != "n");
+
+    if (stop == "n") return true;
+    return false;
+}
 
 int main(int argc, char* argv[]) {
-    if (argc != 3)
-    {
-        std::cerr << "Usage: Client <host> <port>\n";
-        return 1;
+    try {
+
+        if (argc != 3)
+        {
+            std::cerr << "Usage: Client <host> <port>\n";
+            return 1;
+        }
+
+        do {
+
+            boost::asio::io_context io_context;
+
+            boost::asio::ip::tcp::resolver resolver(io_context);
+            auto endpoints = resolver.resolve(argv[1], argv[2]);
+
+            bool running = true;
+
+            Client cl(io_context, endpoints, running);
+
+            // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
+            DirectoryWatcher fw{"../../root", std::chrono::milliseconds(5000), running};
+
+            std::thread t([&io_context](){ io_context.run(); });
+
+            // Start monitoring a folder for changes and (in case of changes)
+            // run a user provided lambda function
+            fw.start(Client::send_actions);
+
+            t.join();
+
+        } while (!stop());
+
+    } catch (std::exception& e) {
+
+        std::cerr << "Exception: " << e.what() << "\n";
+
     }
-
-    boost::asio::io_context io_context;
-
-    boost::asio::ip::tcp::resolver resolver(io_context);
-    auto endpoints = resolver.resolve(argv[1], argv[2]);
-
-    bool running = true;
-
-    Client cl(io_context, endpoints, running);
-
-    // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
-    DirectoryWatcher fw{"../../root", std::chrono::milliseconds(5000), running};
-
-    std::thread t([&io_context](){ io_context.run(); });
-
-    // Start monitoring a folder for changes and (in case of changes)
-    // run a user provided lambda function
-    fw.start(Client::send_actions);
-
-    t.join();
 }
 
 

@@ -99,18 +99,17 @@ void Server_Session::do_write() {
 bool Server_Session::check_database(std::string temp_username, std::string password) {
     sqlite3* conn;
     int count = 0;
-    if (sqlite3_open("Clients.sqlite", &conn) == SQLITE_OK) {
-        std::string sqlStatement = "SELECT COUNT(*) FROM client WHERE username = '" + temp_username
-                + "' AND password = '" + password + "';";
+    if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
+        std::string sqlStatement = std::string("SELECT COUNT(*) FROM Client WHERE username = '") + temp_username + std::string("' AND password = '") + password + std::string("';");
         sqlite3_stmt *statement;
 
-        if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, NULL) == SQLITE_OK) {
+        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, 0);
+        if (res == SQLITE_OK) {
             while( sqlite3_step(statement) == SQLITE_ROW ) {
                 count = sqlite3_column_int(statement, 0);
             }
-        }
-        else {
-            std::cout << "Database Connection Error" << std::endl;
+        } else {
+            std::cout << "Database Error: " << res << ", " << sqlite3_errmsg(conn) << std::endl;
         }
         sqlite3_finalize(statement);
         sqlite3_close(conn);
