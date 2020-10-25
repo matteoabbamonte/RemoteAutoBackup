@@ -103,12 +103,16 @@ class Client {
                 std::cout << "Authorized." << std::endl;
                 boost::property_tree::ptree pt;
                 for (auto tuple : DirectoryWatcher::paths_) {
-                    pt.add(tuple.first, tuple.second.hash);
+                    std::string path(tuple.first);
+                    if (path.find('.') < path.size())
+                        path.replace(path.find('.'), 1, ":");
+                    pt.add(path, tuple.second.hash);
                 }
                 std::stringstream map_stream;
                 std::string map_string;
                 boost::property_tree::write_json(map_stream, pt);
                 map_string = map_stream.str();
+
                 Message write_msg;
                 write_msg.encode_data(map_string);
                 write_msg.encode_header(1);

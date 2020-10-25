@@ -1,3 +1,4 @@
+#include <iostream>
 #include "OperationsQueue.h"
 
 OperationsQueue::OperationsQueue() : max_size(10) {}
