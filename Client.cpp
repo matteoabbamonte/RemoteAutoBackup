@@ -85,13 +85,28 @@ class Client {
         data.append("\n");
         outFile.write(data.data(), data.size());
         outFile.close();
-        if (status == status_type::in_need) {
-            // copiare il comando che faremo nello switch del main
-        } else if (status == status_type::unauthorized) {
-            std::cout << "Unauthorized." << std::endl;
-            //socket_.cancel();
-            socket_.close();
-            running = return_value = false;
+        switch (status) {
+            case status_type::in_need:
+            {
+                // copiare il comando che faremo nello switch del main
+                break;
+            }
+            case status_type::unauthorized:
+            {
+                std::cout << "Unauthorized." << std::endl;
+                socket_.close();
+                running = return_value = false;
+                break;
+            }
+            case status_type::authorized:
+            {
+                std::cout << "Authorized." << std::endl;
+                break;
+            }
+            default:
+            {
+                std::cout << "Unrecognized status." << std::endl;
+            }
         }
         return return_value;
     }
@@ -142,6 +157,7 @@ class Client {
 public:
     Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running) : io_context_(io_context), socket_(io_context), running(running) {
         do_connect(endpoints);
+        create_log_file();
     }
 
     static void send_actions(std::string path_to_watch, FileStatus status, bool isFile) {
