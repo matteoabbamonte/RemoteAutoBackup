@@ -101,6 +101,19 @@ class Client {
             case status_type::authorized:
             {
                 std::cout << "Authorized." << std::endl;
+                boost::property_tree::ptree pt;
+                for (auto tuple : DirectoryWatcher::paths_) {
+                    pt.add(tuple.first, tuple.second.hash);
+                }
+                std::stringstream map_stream;
+                std::string map_string;
+                boost::property_tree::write_json(map_stream, pt);
+                map_string = map_stream.str();
+                Message write_msg;
+                write_msg.encode_data(map_string);
+                write_msg.encode_header(1);
+                write_msg.zip_message();
+                enqueue_msg(write_msg);
                 break;
             }
             default:
@@ -230,11 +243,11 @@ int main(int argc, char* argv[]) {
 
             std::thread t([&io_context](){ io_context.run(); });
 
+            t.join();
+
             // Start monitoring a folder for changes and (in case of changes)
             // run a user provided lambda function
             fw.start(Client::send_actions);
-
-            t.join();
 
         } while (!stop());
 

@@ -3,7 +3,7 @@
 OperationsQueue::OperationsQueue() : max_size(10) {}
 
 void OperationsQueue::push_operation(std::string username, int header, std::string data, tcp::socket &socket) {
-    std::unique_lock ul(m);
+    std::unique_lock<std::mutex> ul(m);
     if (opQueue.size() >= max_size) {
         cv_full.wait(ul, [this](){return opQueue.size() < max_size;});
     }
@@ -11,7 +11,7 @@ void OperationsQueue::push_operation(std::string username, int header, std::stri
 }
 
 OpInfo OperationsQueue::pop_operation() {
-    std::unique_lock ul(m);
+    std::unique_lock<std::mutex> ul(m);
     if (opQueue.empty()) {
         cv_empty.wait(ul, [this](){return !opQueue.empty();});
     }

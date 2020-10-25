@@ -13,14 +13,19 @@ enum class FileStatus {created, modified, erased};
 struct RecPath {
     std::time_t lastEdit;
     bool isFile;
+    std::size_t hash;
 };
 
 class DirectoryWatcher {
     bool & running;
     std::string path_to_watch;
-    std::unordered_map<std::string, RecPath> paths_;
+    inline static std::unordered_map<std::string, RecPath> paths_;
     // Time interval at which we check the base folder for changes
     std::chrono::duration<int, std::milli> delay;
+
+    size_t dirFile_Size(boost::filesystem::directory_entry& element);
+
+    friend class Client;
 
 public:
 

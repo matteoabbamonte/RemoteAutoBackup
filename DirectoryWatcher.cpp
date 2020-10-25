@@ -10,6 +10,18 @@ DirectoryWatcher::DirectoryWatcher(std::string path_to_watch, std::chrono::durat
     }
 }
 
+size_t DirectoryWatcher::dirFile_Size(boost::filesystem::directory_entry& element) {
+    int accum = 0;
+    if (boost::filesystem::is_regular_file(path_to_watch)) {
+        accum = boost::filesystem::file_size(element);
+    } else {
+        for (boost::filesystem::directory_entry& sub_element : boost::filesystem::recursive_directory_iterator(path_to_watch)) {
+            accum += dirFile_Size(sub_element);
+        }
+    }
+    return accum;
+}
+
 void DirectoryWatcher::start(const std::function<void (std::string, FileStatus, bool)> &action) {
     while(running) {
         // Wait for "delay" milliseconds
@@ -25,15 +37,19 @@ void DirectoryWatcher::start(const std::function<void (std::string, FileStatus, 
 
         // Check if a file was created or modified
         for (boost::filesystem::directory_entry& element : boost::filesystem::recursive_directory_iterator(path_to_watch)) {
+
             if (element.path().filename().string().find(".",0) != 0) {
                 auto current_file_last_write_time = boost::filesystem::last_write_time(element);
+                std::hash<std::string> loc_hash;
+                std::string loc_string(element.path().string() + std::to_string(current_file_last_write_time) + std::to_string(dirFile_Size(element)));
+
                 //Element creation
                 if (paths_.find(element.path().string()) == paths_.end()) {
-                    paths_[element.path().string()] = {current_file_last_write_time, boost::filesystem::is_regular_file(element)};
+                    paths_[element.path().string()] = {current_file_last_write_time, boost::filesystem::is_regular_file(element), loc_hash(loc_string)};
                     action(element.path().string(), FileStatus::created, boost::filesystem::is_regular_file(element));
                     //Element modification
                 } else if (paths_[element.path().string()].lastEdit != current_file_last_write_time) {
-                    paths_[element.path().string()] = {current_file_last_write_time, boost::filesystem::is_regular_file(element)};
+                    paths_[element.path().string()] = {current_file_last_write_time, boost::filesystem::is_regular_file(element), loc_hash(loc_string)};
                     action(element.path().string(), FileStatus::modified, boost::filesystem::is_regular_file(element));
                 }
             }
