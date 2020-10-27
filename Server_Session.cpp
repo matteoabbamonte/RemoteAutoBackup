@@ -195,7 +195,9 @@ void Server_Session::request_handler() {
             case (action_type::synchronize) : {
 
                 boost::property_tree::ptree pt;
-                boost::property_tree::json_parser::read_json(data, pt);
+                std::stringstream data_stream;
+                data_stream << data;
+                boost::property_tree::json_parser::read_json(data_stream, pt);
                 if (get_paths()) {
                     // vede se il database risponde
                     if (server_availability) {
@@ -224,7 +226,9 @@ void Server_Session::request_handler() {
             case (action_type::create) : {
 
                 boost::property_tree::ptree pt;
-                boost::property_tree::json_parser::read_json(data, pt);
+                std::stringstream data_stream;
+                data_stream << data;
+                boost::property_tree::json_parser::read_json(data_stream, pt);
                 auto path = pt.get<std::string>("path");
                 auto hash = pt.get<std::size_t>("hash");
                 bool isDirectory = pt.get<bool>("isDirectory");
@@ -256,7 +260,9 @@ void Server_Session::request_handler() {
             case (action_type::update) : {
 
                 boost::property_tree::ptree pt;
-                boost::property_tree::json_parser::read_json(data, pt);
+                std::stringstream data_stream;
+                data_stream << data;
+                boost::property_tree::json_parser::read_json(data_stream, pt);
                 auto path = pt.get<std::string>("path");
                 auto hash = pt.get<std::size_t>("hash");
                 bool isDirectory = pt.get<bool>("isDirectory");
@@ -283,7 +289,9 @@ void Server_Session::request_handler() {
             case (action_type::erase) : {
 
                 boost::property_tree::ptree pt;
-                boost::property_tree::json_parser::read_json(data, pt);
+                std::stringstream data_stream;
+                data_stream << data;
+                boost::property_tree::json_parser::read_json(data_stream, pt);
                 auto path = pt.get<std::string>("path");
                 remove_path(path);
                 std::string relative_path = std::string("../") + std::string(username) + std::string("/") + std::string(path);
