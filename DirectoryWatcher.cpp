@@ -5,8 +5,7 @@ DirectoryWatcher::DirectoryWatcher(std::string path_to_watch, std::chrono::durat
     for (boost::filesystem::directory_entry &element : boost::filesystem::recursive_directory_iterator(
             this->path_to_watch)) {
         if (element.path().filename().string().find(".",0) != 0)
-            paths_[element.path().string()] = {boost::filesystem::last_write_time(element),
-                                               boost::filesystem::is_regular_file(element)};
+            paths_[element.path().string()] = {boost::filesystem::last_write_time(element), boost::filesystem::is_regular_file(element), make_hash(element)};
     }
 }
 
@@ -39,21 +38,30 @@ void DirectoryWatcher::start(const std::function<void (std::string, FileStatus, 
         for (boost::filesystem::directory_entry& element : boost::filesystem::recursive_directory_iterator(path_to_watch)) {
 
             if (element.path().filename().string().find(".",0) != 0) {
-                auto current_file_last_write_time = boost::filesystem::last_write_time(element);
-                std::hash<std::string> loc_hash;
-                std::string loc_string(element.path().string() + std::to_string(current_file_last_write_time) + std::to_string(dirFile_Size(element)));
+                auto lats_time_mod = boost::filesystem::last_write_time(element);
 
                 //Element creation
                 if (paths_.find(element.path().string()) == paths_.end()) {
-                    paths_[element.path().string()] = {current_file_last_write_time, boost::filesystem::is_regular_file(element), loc_hash(loc_string)};
+                    paths_[element.path().string()] = {lats_time_mod, boost::filesystem::is_regular_file(element), make_hash(element)};
                     action(element.path().string(), FileStatus::created, boost::filesystem::is_regular_file(element));
                     //Element modification
-                } else if (paths_[element.path().string()].lastEdit != current_file_last_write_time) {
-                    paths_[element.path().string()] = {current_file_last_write_time, boost::filesystem::is_regular_file(element), loc_hash(loc_string)};
+                } else if (paths_[element.path().string()].lastEdit != lats_time_mod) {
+                    paths_[element.path().string()] = {lats_time_mod, boost::filesystem::is_regular_file(element), make_hash(element)};
                     action(element.path().string(), FileStatus::modified, boost::filesystem::is_regular_file(element));
                 }
             }
         }
     }
+}
+
+std::string DirectoryWatcher::get_path_to_watch() {
+    return path_to_watch;
+}
+
+size_t DirectoryWatcher::make_hash(boost::filesystem::directory_entry& element) {
+    auto lats_time_mod = boost::filesystem::last_write_time(element);
+    std::hash<std::string> loc_hash;
+    std::string loc_string(element.path().string() + std::to_string(lats_time_mod) + std::to_string(dirFile_Size(element)));
+    return loc_hash(loc_string);
 }
 

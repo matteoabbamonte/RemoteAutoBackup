@@ -13,6 +13,7 @@ class Client {
     Message read_msg_;
     std::deque<Message> write_queue_c;
     bool & running;
+    std::string path_to_watch;
 
     void do_connect(const tcp::resolver::results_type& endpoints) {
         std::cout << "Trying to connect..." << std::endl;
@@ -104,6 +105,8 @@ class Client {
                 boost::property_tree::ptree pt;
                 for (auto tuple : DirectoryWatcher::paths_) {
                     std::string path(tuple.first);
+                    path = path.substr(path_to_watch.size()+1);
+                    //path = path.substr(path.find('/')+1);
                     if (path.find('.') < path.size())
                         path.replace(path.find('.'), 1, ":");
                     pt.add(path, tuple.second.hash);
@@ -172,7 +175,7 @@ class Client {
     }
 
 public:
-    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running) : io_context_(io_context), socket_(io_context), running(running) {
+    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running, std::string path_to_watch) : io_context_(io_context), socket_(io_context), running(running), path_to_watch(path_to_watch) {
         do_connect(endpoints);
         create_log_file();
     }
@@ -225,9 +228,9 @@ bool stop() {
 int main(int argc, char* argv[]) {
     try {
 
-        if (argc != 3)
+        if (argc != 4)
         {
-            std::cerr << "Usage: Client <host> <port>\n";
+            std::cerr << "Usage: Client <host> <port> <rel_path_to_watch>\n";
             return 1;
         }
 
@@ -240,10 +243,10 @@ int main(int argc, char* argv[]) {
 
             bool running = true;
 
-            Client cl(io_context, endpoints, running);
+            Client cl(io_context, endpoints, running, argv[3]);
 
             // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
-            DirectoryWatcher fw{"../../root", std::chrono::milliseconds(5000), running};
+            DirectoryWatcher fw{argv[3], std::chrono::milliseconds(5000), running};
 
             std::thread t([&io_context](){ io_context.run(); });
 

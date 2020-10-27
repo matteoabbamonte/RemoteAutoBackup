@@ -161,8 +161,6 @@ void Server_Session::request_handler() {
     read_msg.decode_message();
     action_type header = static_cast<action_type>(read_msg.get_header());
     std::string data = read_msg.get_data();
-    boost::property_tree::ptree pt;
-    boost::property_tree::json_parser::read_json(data, pt);
     int status_type;
     std::string response_str;
     Message response_msg;
@@ -196,6 +194,8 @@ void Server_Session::request_handler() {
 
             case (action_type::synchronize) : {
 
+                boost::property_tree::ptree pt;
+                boost::property_tree::json_parser::read_json(data, pt);
                 if (get_paths()) {
                     // vede se il database risponde
                     if (server_availability) {
@@ -223,6 +223,8 @@ void Server_Session::request_handler() {
 
             case (action_type::create) : {
 
+                boost::property_tree::ptree pt;
+                boost::property_tree::json_parser::read_json(data, pt);
                 auto path = pt.get<std::string>("path");
                 auto hash = pt.get<std::size_t>("hash");
                 bool isDirectory = pt.get<bool>("isDirectory");
@@ -253,6 +255,8 @@ void Server_Session::request_handler() {
 
             case (action_type::update) : {
 
+                boost::property_tree::ptree pt;
+                boost::property_tree::json_parser::read_json(data, pt);
                 auto path = pt.get<std::string>("path");
                 auto hash = pt.get<std::size_t>("hash");
                 bool isDirectory = pt.get<bool>("isDirectory");
@@ -278,10 +282,11 @@ void Server_Session::request_handler() {
 
             case (action_type::erase) : {
 
+                boost::property_tree::ptree pt;
+                boost::property_tree::json_parser::read_json(data, pt);
                 auto path = pt.get<std::string>("path");
                 remove_path(path);
-                std::string relative_path =
-                        std::string("../") + std::string(username) + std::string("/") + std::string(path);
+                std::string relative_path = std::string("../") + std::string(username) + std::string("/") + std::string(path);
                 if (relative_path.find(':') < relative_path.size())
                     relative_path.replace(relative_path.find(':'), 1, ".");
                 boost::filesystem::remove(relative_path.data());
