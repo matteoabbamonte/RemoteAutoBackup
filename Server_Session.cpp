@@ -93,6 +93,33 @@ bool Server_Session::check_database(std::string temp_username, std::string passw
     return count;
 }
 
+void Server_Session::update_db_paths() {
+    std::cout << "Updating Database..." << std::endl;
+    boost::property_tree::ptree pt;
+    for (auto it = paths.begin(); it != paths.end(); it++) {
+        pt.add(it->first, it->second);
+    }
+    std::stringstream map_to_stream;
+    boost::property_tree::write_json(map_to_stream, pt);
+    std::cout << map_to_stream.str() << std::endl;
+    sqlite3* conn;
+    int count = 0;
+    if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
+        std::string sqlStatement = std::string("UPDATE client SET paths = '") + map_to_stream.str() + std::string("' WHERE username = '") + username + std::string("';");
+        sqlite3_stmt *statement;
+
+        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);
+        if (res == SQLITE_OK) {
+            sqlite3_step(statement);
+        } else {
+            std::cout << "Database Error: " << res << ", " << sqlite3_errmsg(conn) << std::endl;
+        }
+        sqlite3_finalize(statement);
+        sqlite3_close(conn);
+    }
+}
+
+
 bool Server_Session::get_paths() {
     sqlite3* conn;
     unsigned char *paths_ch;

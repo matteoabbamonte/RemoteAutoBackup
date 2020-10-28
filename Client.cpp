@@ -83,13 +83,15 @@ class Client {
         boost::filesystem::ofstream outFile;
         bool return_value = true;
         outFile.open("../../log.txt", std::ios::app);
-        data.append("\n");
-        outFile.write(data.data(), data.size());
-        outFile.close();
         switch (status) {
             case status_type::in_need:
             {
                 // copiare il comando che faremo nello switch del main
+
+
+                data.append("\n");
+                std::string log_txt("Some paths needed");
+                outFile.write(log_txt.data(), log_txt.size());
                 break;
             }
             case status_type::unauthorized:
@@ -97,6 +99,9 @@ class Client {
                 std::cout << "Unauthorized." << std::endl;
                 socket_.close();
                 running = return_value = false;
+
+                data.append("\n");
+                outFile.write(data.data(), data.size());
                 break;
             }
             case status_type::authorized:
@@ -121,13 +126,19 @@ class Client {
                 write_msg.encode_header(1);
                 write_msg.zip_message();
                 enqueue_msg(write_msg);
+
+                data.append("\n");
+                outFile.write(data.data(), data.size());
                 break;
             }
             default:
             {
-                std::cout << "Unrecognized status." << std::endl;
+                std::cout << "Default status." << std::endl;
+                data.append("\n");
+                outFile.write(data.data(), data.size());
             }
         }
+        outFile.close();
         return return_value;
     }
 

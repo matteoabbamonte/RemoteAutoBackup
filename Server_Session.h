@@ -43,6 +43,8 @@ public:
 
     void enqueue_msg(const Message& msg, bool close);
 
+    void update_db_paths();
+
     bool get_paths();
 
     std::vector<std::string> compare_paths(ptree client_pt);
