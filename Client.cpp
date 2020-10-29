@@ -86,10 +86,41 @@ class Client {
         switch (status) {
             case status_type::in_need:
             {
-                // copiare il comando che faremo nello switch del main
+                std::string delimiter = "||";
+                size_t pos = 0;
+                std::string path;
+                while ((pos = data.find(delimiter)) != std::string::npos) {
+                    path = data.substr(0, pos);
+                    std::string relative_path = path;
+                    if (relative_path.find(':') < relative_path.size())
+                        relative_path.replace(relative_path.find(':'), 1, ".");
+                    std::ifstream inFile;
+                    relative_path = std::string(path_to_watch + "/") + relative_path;
+                    inFile.open(relative_path, std::ios::binary);
+                    std::vector<char> buffer_vec;
+                    char buffer;
+                    while (inFile.get(buffer))                  // loop getting single characters
+                        buffer_vec.emplace_back(buffer);
+                    std::string output(buffer_vec.data(), buffer_vec.size());
+                    data.erase(0, pos + delimiter.length());
+                    boost::property_tree::ptree pt;
+                    pt.add("path", path);
+                    pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
+                    pt.add("isFile", DirectoryWatcher::paths_[relative_path].isFile);
+                    pt.add("content", output);
 
+                    //writing message
+                    std::stringstream file_stream;
+                    boost::property_tree::write_json(file_stream, pt);
+                    std::string file_string = file_stream.str();
 
-                data.append("\n");
+                    Message write_msg;
+                    write_msg.encode_data(file_string);
+                    write_msg.encode_header(2);
+                    write_msg.zip_message();
+                    enqueue_msg(write_msg);
+                }
+
                 std::string log_txt("Some paths needed");
                 outFile.write(log_txt.data(), log_txt.size());
                 break;

@@ -51,7 +51,7 @@ bool Message::decode_size() {
 
 int Message::get_size_int() {
     int size_b = std::stoi(std::string(size));
-    return size_b;
+    return size_b+2;
 }
 
 void Message::decode_message() {
@@ -82,8 +82,8 @@ void Message::put_credentials(const std::string& username, const std::string& pa
     encode_data(user_pass);
 }
 
-Message::~Message() {
+/*Message::~Message() {
     //delete [] size;
     //delete [] msg_ptr;
-}
+}*/
 

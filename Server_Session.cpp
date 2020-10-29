@@ -121,9 +121,7 @@ bool Server_Session::get_paths() {
             while( sqlite3_step(statement) == SQLITE_ROW ) {
                 paths_ch = const_cast<unsigned char*>(sqlite3_column_text(statement, 0));
             }
-            if (paths_ch == NULL) {
-                found = false;
-            } else {
+            if (paths_ch != NULL) {
                 std::string paths_str(reinterpret_cast<char*>(paths_ch));   //cast in order to remove unsigned
                 found = true;
                 boost::property_tree::ptree pt;
@@ -247,11 +245,11 @@ void Server_Session::request_handler() {
                 boost::property_tree::json_parser::read_json(data_stream, pt);
                 auto path = pt.get<std::string>("path");
                 auto hash = pt.get<std::size_t>("hash");
-                bool isDirectory = pt.get<bool>("isDirectory");
+                bool isFile = pt.get<bool>("isFile");
                 update_paths(path, hash);
                 std::string relative_path =
                         std::string("../") + std::string(username) + std::string("/") + std::string(path);
-                if (isDirectory) {
+                if (!isFile) {
                     // create a directory with the specified name
                     boost::filesystem::create_directory(relative_path);
                 } else {
@@ -334,4 +332,9 @@ void Server_Session::request_handler() {
     response_msg.zip_message();
     enqueue_msg(response_msg, close);
 
+}
+
+Server_Session::~Server_Session() {
+    std::cout << "Distruttore server session" << std::endl;
+    if (!paths.empty()) update_db_paths();
 }

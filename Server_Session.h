@@ -39,6 +39,8 @@ public:
 
     void do_write();        //writes the available messages from the queue to the socket
 
+    ~Server_Session();
+
     bool check_database(std::string username, std::string password);
 
     void enqueue_msg(const Message& msg, bool close);

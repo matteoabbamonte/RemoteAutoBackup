@@ -13,7 +13,7 @@ class Message {
 public:
     Message();
 
-    ~Message();
+    /*~Message();*/
 
     void encode_header(int header);
 
