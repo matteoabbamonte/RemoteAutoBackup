@@ -17,6 +17,7 @@ void Server_Session::start() {
 void Server_Session::do_read_size() {
     std::cout << "Reading message size..." << std::endl;
     auto self(shared_from_this());
+    std::string prova;
     boost::asio::async_read(socket_,
             boost::asio::buffer(read_msg.get_size_ptr(), 10),
             [this, self](boost::system::error_code ec, std::size_t /*length*/) {
@@ -30,11 +31,38 @@ void Server_Session::do_read_size() {
     });
 }
 
+std::pair<boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type>, bool> match_endJSON(boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type> begin, boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type> end)
+{
+    auto i = begin;
+    while (i != end)
+        if (*(i-2) == '\n' && *(i-1) == '}' && *i == '\n')
+            return std::make_pair(i, true);
+    return std::make_pair(i, false);
+}
+
 void Server_Session::do_read_body() {
     std::cout << "Reading message body..." << std::endl;
     auto self(shared_from_this());
+
+    boost::asio::streambuf b;
+    boost::asio::async_read_until(socket_, b, "\n}\n", [this, self, &b](boost::system::error_code ec, std::size_t size) {
+        if (!ec) {
+            std::istream ifstr(&b);
+            std::string prova;
+            ifstr >> prova;
+            std::cout << prova << std::endl;
+            //read_msg.get_msg_ptr();
+            request_handler();
+            do_read_size();
+        } else {
+            std::cout << "Error inside do_read_body: ";
+            std::cout << ec.message() << std::endl;
+        }
+    });
+
+    /*
     socket_.async_read_some(boost::asio::buffer(read_msg.get_msg_ptr(read_msg.get_size_int()), read_msg.get_size_int()),
-            [this, self](boost::system::error_code ec, std::size_t /*length*/) {
+            [this, self](boost::system::error_code ec, std::size_t /*length) {
                 if (!ec) {
                     request_handler();
                     do_read_size();
@@ -42,7 +70,7 @@ void Server_Session::do_read_body() {
                     std::cout << "Error inside do_read_body: ";
                     std::cout << ec.message() << std::endl;
                 }
-    });
+    });*/
 }
 
 void Server_Session::do_write() {
