@@ -51,7 +51,7 @@ bool Message::decode_size() {
 
 int Message::get_size_int() {
     int size_b = std::stoi(std::string(size));
-    return size_b+2;
+    return size_b;
 }
 
 void Message::decode_message() {

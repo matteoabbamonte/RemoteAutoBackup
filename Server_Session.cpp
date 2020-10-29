@@ -18,57 +18,49 @@ void Server_Session::do_read_size() {
     std::cout << "Reading message size..." << std::endl;
     auto self(shared_from_this());
     boost::asio::async_read(socket_,
-                            boost::asio::buffer(read_msg.get_size_ptr(), 10),
-                            [this, self](boost::system::error_code ec, std::size_t /*length*/)
-                            {
-                                if (!ec && read_msg.decode_size()) {
-                                    std::cout << "Size decoded, reading body" << std::endl;
-                                    do_read_body();
-                                } else {
-                                    std::cout << "Error inside do_read_size: ";
-                                    std::cerr << ec.message() << std::endl;
-                                }
-                            });
+            boost::asio::buffer(read_msg.get_size_ptr(), 10),
+            [this, self](boost::system::error_code ec, std::size_t /*length*/) {
+                if (!ec && read_msg.decode_size()) {
+                    std::cout << "Size decoded, reading body" << std::endl;
+                    do_read_body();
+                } else {
+                    std::cout << "Error inside do_read_size: ";
+                    std::cerr << ec.message() << std::endl;
+                }
+    });
 }
 
 void Server_Session::do_read_body() {
     std::cout << "Reading message body..." << std::endl;
     auto self(shared_from_this());
     socket_.async_read_some(boost::asio::buffer(read_msg.get_msg_ptr(read_msg.get_size_int()), read_msg.get_size_int()),
-                            [this, self](boost::system::error_code ec, std::size_t /*length*/)
-                            {
-                                if (!ec) {
-                                    request_handler();
-                                    do_read_size();
-                                } else {
-                                    std::cout << "Error inside do_read_body: ";
-                                    std::cout << ec.message() << std::endl;
-                                }
-                            });
+            [this, self](boost::system::error_code ec, std::size_t /*length*/) {
+                if (!ec) {
+                    request_handler();
+                    do_read_size();
+                } else {
+                    std::cout << "Error inside do_read_body: ";
+                    std::cout << ec.message() << std::endl;
+                }
+    });
 }
 
 void Server_Session::do_write() {
     std::cout << "Writing message..." << std::endl;
     auto self(shared_from_this());
     boost::asio::async_write(socket_,
-                             boost::asio::buffer(write_queue_s.front().get_msg_ptr(),
-                                                 write_queue_s.front().get_size_int()),
-                             [this, self](boost::system::error_code ec, std::size_t /*length*/)
-                             {
-                                 if (!ec)
-                                 {
-                                     write_queue_s.pop_front();
-                                     if (!write_queue_s.empty())
-                                     {
-                                         do_write();
-                                     }
-                                 }
-                                 else
-                                 {
-                                     std::cout << "Error inside do_write: ";
-                                     std::cout << ec.message() << std::endl;
-                                 }
-                             });
+            boost::asio::buffer(write_queue_s.front().get_msg_ptr(),write_queue_s.front().get_size_int()),
+            [this, self](boost::system::error_code ec, std::size_t /*length*/) {
+                if (!ec) {
+                    write_queue_s.pop_front();
+                    if (!write_queue_s.empty()) {
+                        do_write();
+                    }
+                } else {
+                    std::cout << "Error inside do_write: ";
+                    std::cout << ec.message() << std::endl;
+                }
+    });
 }
 
 bool Server_Session::check_database(std::string temp_username, std::string password) {
@@ -78,7 +70,6 @@ bool Server_Session::check_database(std::string temp_username, std::string passw
     if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("SELECT COUNT(*) FROM Client WHERE username = '") + temp_username + std::string("' AND password = '") + password + std::string("';");
         sqlite3_stmt *statement;
-
         int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);
         if (res == SQLITE_OK) {
             while( sqlite3_step(statement) == SQLITE_ROW ) {
@@ -107,7 +98,6 @@ void Server_Session::update_db_paths() {
     if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("UPDATE client SET paths = '") + map_to_stream.str() + std::string("' WHERE username = '") + username + std::string("';");
         sqlite3_stmt *statement;
-
         int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);
         if (res == SQLITE_OK) {
             sqlite3_step(statement);
@@ -127,7 +117,6 @@ bool Server_Session::get_paths() {
     if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("SELECT paths FROM client WHERE username = '") + username + std::string("';");
         sqlite3_stmt *statement;
-
         if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, NULL) == SQLITE_OK) {
             while( sqlite3_step(statement) == SQLITE_ROW ) {
                 paths_ch = const_cast<unsigned char*>(sqlite3_column_text(statement, 0));
