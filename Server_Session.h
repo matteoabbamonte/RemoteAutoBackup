@@ -50,4 +50,5 @@ public:
     bool get_paths();
 
     std::vector<std::string> compare_paths(ptree client_pt);
+
 };

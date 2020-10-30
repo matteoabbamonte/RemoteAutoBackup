@@ -3,7 +3,6 @@
 
 Message::Message() {
     size = new char[11];
-    msg_ptr = nullptr;
 }
 
 void Message::encode_header(int header) {
@@ -22,28 +21,32 @@ void Message::zip_message() {
     std::string str_dim = std::to_string(dim);
     str_dim.insert(str_dim.begin(), 10 - str_dim.length(), '0');
     message_string = str_dim + message_string;
-    msg_ptr = new char[message_string.size() + 1];
+    msg_ptr = std::make_shared<std::string>(message_string);
+    msg_ptr->resize(message_string.size()+1);
     strncpy(size, str_dim.c_str(), 10);
-    strncpy(msg_ptr, message_string.c_str(), message_string.size());
+    //msg_ptr->insert(0, message_string);
+    //strncpy(msg_ptr, message_string.c_str(), message_string.size());
 }
 
 char* Message::get_size_ptr() {
     return size;
 }
 
-char* Message::get_msg_ptr(int size_b) {
-    msg_ptr = new char[size_b+1];
+/*std::shared_ptr<std::string> Message::get_msg_ptr(int size_b) {
+    msg_ptr = std::make_shared<std::string>();
+    msg_ptr->resize(size_b);
     return msg_ptr;
-}
+}*/
 
-char* Message::get_msg_ptr() {
+std::shared_ptr<std::string> Message::get_msg_ptr() {
     return msg_ptr;
 }
 
 bool Message::decode_size() {
     size[10] = '\0';
     if (std::stoi(std::string(size)) > 0) {
-        msg_ptr = new char[std::stoi(std::string(size))+1];
+        msg_ptr = std::make_shared<std::string>();
+        msg_ptr->resize(std::stoi(std::string(size))+1);
         return true;
     }
     return false;
@@ -56,8 +59,8 @@ int Message::get_size_int() {
 
 void Message::decode_message() {
     std::stringstream stream;
-    msg_ptr[get_size_int()] = '\0';
     stream << msg_ptr;
+    //std::cout << *msg_ptr << std::endl;
     boost::property_tree::json_parser::read_json(stream, pt);
 }
 

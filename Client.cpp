@@ -58,7 +58,10 @@ class Client {
 
     void do_read_body() {
         std::cout << "Reading message body..." << std::endl;
-        socket_.async_read_some(boost::asio::buffer(read_msg_.get_msg_ptr(read_msg_.get_size_int()), read_msg_.get_size_int()),
+
+        boost::asio::async_read_until(socket_,
+                                      boost::asio::dynamic_string_buffer(*read_msg_.get_msg_ptr()),
+                                      "\n}\n",
                                 [this](boost::system::error_code ec, std::size_t /*length*/)
                                 {
                                     if (!ec)
@@ -77,6 +80,27 @@ class Client {
                                         running = false;
                                     }
                                 });
+
+        /*
+        socket_.async_read_some(boost::asio::buffer(read_msg_.get_msg_ptr(read_msg_.get_size_int()), read_msg_.get_size_int()),
+                                [this](boost::system::error_code ec, std::size_t /*length)
+                                {
+                                    if (!ec)
+                                    {
+                                        read_msg_.decode_message();
+                                        //change header to status
+                                        auto header = static_cast<status_type>(read_msg_.get_header());
+                                        std::string data = read_msg_.get_data();
+                                        //statusQueue.push_status(header, data);
+                                        if (status_handler(header, data)) do_read_size();
+                                    }
+                                    else {
+                                        std::cout << "Error while reding message body: ";
+                                        std::cout << ec.message() << std::endl;
+                                        socket_.close();
+                                        running = false;
+                                    }
+                                });*/
     }
 
     bool status_handler(int status, std::string data) {
@@ -176,8 +200,7 @@ class Client {
     void do_write() {
         std::cout << "Writing message..." << std::endl;
         boost::asio::async_write(socket_,
-                                 boost::asio::buffer(write_queue_c.front().get_msg_ptr(),
-                                                     write_queue_c.front().get_size_int()),
+                                 boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
                                  [this](boost::system::error_code ec, std::size_t /*length*/)
                                  {
                                      if (!ec)

@@ -8,7 +8,7 @@
 class Message {
     boost::property_tree::ptree pt;
     char *size;
-    char *msg_ptr;
+    std::shared_ptr<std::string> msg_ptr;
 
 public:
     Message();
@@ -23,9 +23,9 @@ public:
 
     char* get_size_ptr();   //get pointer to the beginning of the size buffer
 
-    char* get_msg_ptr(int size_b);    //get pointer to the beginning of the message buffer, initializing the pointer to the char array
+    /*std::shared_ptr<std::string> get_msg_ptr(int size_b);*/    //get pointer to the beginning of the message buffer, initializing the pointer to the char array
 
-    char* get_msg_ptr();    //get pointer to the beginning of the message buffer
+    std::shared_ptr<std::string> get_msg_ptr();    //get pointer to the beginning of the message buffer
 
     int get_size_int();     //get the size as int
 

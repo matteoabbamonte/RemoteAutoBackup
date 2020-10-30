@@ -31,27 +31,17 @@ void Server_Session::do_read_size() {
     });
 }
 
-std::pair<boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type>, bool> match_endJSON(boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type> begin, boost::asio::buffers_iterator<boost::asio::streambuf::const_buffers_type> end)
-{
-    auto i = begin;
-    while (i != end)
-        if (*(i-2) == '\n' && *(i-1) == '}' && *i == '\n')
-            return std::make_pair(i, true);
-    return std::make_pair(i, false);
-}
-
 void Server_Session::do_read_body() {
     std::cout << "Reading message body..." << std::endl;
     auto self(shared_from_this());
-
-    boost::asio::streambuf b;
-    boost::asio::async_read_until(socket_, b, "\n}\n", [this, self, &b](boost::system::error_code ec, std::size_t size) {
+    //boost::asio::streambuf b;
+    //std::shared_ptr<std::string> prova = std::make_shared<std::string>();
+    //prova->resize(read_msg.get_size_int());
+    boost::asio::async_read_until(socket_,
+                                  boost::asio::dynamic_string_buffer(*read_msg.get_msg_ptr()),
+                                  "\n}\n",
+                                  [this, self](const boost::system::error_code ec, std::size_t size){
         if (!ec) {
-            std::istream ifstr(&b);
-            std::string prova;
-            ifstr >> prova;
-            std::cout << prova << std::endl;
-            //read_msg.get_msg_ptr();
             request_handler();
             do_read_size();
         } else {
@@ -77,7 +67,7 @@ void Server_Session::do_write() {
     std::cout << "Writing message..." << std::endl;
     auto self(shared_from_this());
     boost::asio::async_write(socket_,
-            boost::asio::buffer(write_queue_s.front().get_msg_ptr(),write_queue_s.front().get_size_int()),
+            boost::asio::dynamic_string_buffer(*write_queue_s.front().get_msg_ptr()),
             [this, self](boost::system::error_code ec, std::size_t /*length*/) {
                 if (!ec) {
                     write_queue_s.pop_front();
