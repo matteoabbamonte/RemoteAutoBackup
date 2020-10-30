@@ -82,8 +82,8 @@ void Message::put_credentials(const std::string& username, const std::string& pa
     encode_data(user_pass);
 }
 
-Message::~Message() {
+/*Message::~Message() {
     //delete [] size;
     //delete [] msg_ptr;
-}
+}*/
 

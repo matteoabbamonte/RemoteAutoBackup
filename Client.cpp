@@ -13,6 +13,7 @@ class Client {
     Message read_msg_;
     std::deque<Message> write_queue_c;
     bool & running;
+    std::string path_to_watch;
 
     void do_connect(const tcp::resolver::results_type& endpoints) {
         std::cout << "Trying to connect..." << std::endl;
@@ -82,13 +83,46 @@ class Client {
         boost::filesystem::ofstream outFile;
         bool return_value = true;
         outFile.open("../../log.txt", std::ios::app);
-        data.append("\n");
-        outFile.write(data.data(), data.size());
-        outFile.close();
         switch (status) {
             case status_type::in_need:
             {
-                // copiare il comando che faremo nello switch del main
+                std::string delimiter = "||";
+                size_t pos = 0;
+                std::string path;
+                while ((pos = data.find(delimiter)) != std::string::npos) {
+                    path = data.substr(0, pos);
+                    std::string relative_path = path;
+                    if (relative_path.find(':') < relative_path.size())
+                        relative_path.replace(relative_path.find(':'), 1, ".");
+                    std::ifstream inFile;
+                    relative_path = std::string(path_to_watch + "/") + relative_path;
+                    inFile.open(relative_path, std::ios::binary);
+                    std::vector<char> buffer_vec;
+                    char buffer;
+                    while (inFile.get(buffer))                  // loop getting single characters
+                        buffer_vec.emplace_back(buffer);
+                    std::string output(buffer_vec.data(), buffer_vec.size());
+                    data.erase(0, pos + delimiter.length());
+                    boost::property_tree::ptree pt;
+                    pt.add("path", path);
+                    pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
+                    pt.add("isFile", DirectoryWatcher::paths_[relative_path].isFile);
+                    pt.add("content", output);
+
+                    //writing message
+                    std::stringstream file_stream;
+                    boost::property_tree::write_json(file_stream, pt);
+                    std::string file_string = file_stream.str();
+
+                    Message write_msg;
+                    write_msg.encode_data(file_string);
+                    write_msg.encode_header(2);
+                    write_msg.zip_message();
+                    enqueue_msg(write_msg);
+                }
+
+                std::string log_txt("Some paths needed");
+                outFile.write(log_txt.data(), log_txt.size());
                 break;
             }
             case status_type::unauthorized:
@@ -96,6 +130,9 @@ class Client {
                 std::cout << "Unauthorized." << std::endl;
                 socket_.close();
                 running = return_value = false;
+
+                data.append("\n");
+                outFile.write(data.data(), data.size());
                 break;
             }
             case status_type::authorized:
@@ -104,6 +141,8 @@ class Client {
                 boost::property_tree::ptree pt;
                 for (auto tuple : DirectoryWatcher::paths_) {
                     std::string path(tuple.first);
+                    path = path.substr(path_to_watch.size()+1);
+                    //path = path.substr(path.find('/')+1);
                     if (path.find('.') < path.size())
                         path.replace(path.find('.'), 1, ":");
                     pt.add(path, tuple.second.hash);
@@ -118,13 +157,19 @@ class Client {
                 write_msg.encode_header(1);
                 write_msg.zip_message();
                 enqueue_msg(write_msg);
+
+                data.append("\n");
+                outFile.write(data.data(), data.size());
                 break;
             }
             default:
             {
-                std::cout << "Unrecognized status." << std::endl;
+                std::cout << "Default status." << std::endl;
+                data.append("\n");
+                outFile.write(data.data(), data.size());
             }
         }
+        outFile.close();
         return return_value;
     }
 
@@ -172,7 +217,7 @@ class Client {
     }
 
 public:
-    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running) : io_context_(io_context), socket_(io_context), running(running) {
+    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running, std::string path_to_watch) : io_context_(io_context), socket_(io_context), running(running), path_to_watch(path_to_watch) {
         do_connect(endpoints);
         create_log_file();
     }
@@ -225,9 +270,9 @@ bool stop() {
 int main(int argc, char* argv[]) {
     try {
 
-        if (argc != 3)
+        if (argc != 4)
         {
-            std::cerr << "Usage: Client <host> <port>\n";
+            std::cerr << "Usage: Client <host> <port> <rel_path_to_watch>\n";
             return 1;
         }
 
@@ -240,10 +285,10 @@ int main(int argc, char* argv[]) {
 
             bool running = true;
 
-            Client cl(io_context, endpoints, running);
+            Client cl(io_context, endpoints, running, argv[3]);
 
             // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
-            DirectoryWatcher fw{"../../root", std::chrono::milliseconds(5000), running};
+            DirectoryWatcher fw{argv[3], std::chrono::milliseconds(5000), running};
 
             std::thread t([&io_context](){ io_context.run(); });
 

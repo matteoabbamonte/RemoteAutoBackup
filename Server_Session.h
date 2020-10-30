@@ -6,9 +6,8 @@
 #include <deque>
 #include <sqlite3.h>
 #include "Message.h"
-#include "OperationsQueue.h"
 #include "Headers.h"
-#include "Common_Session.h"
+#include <boost/filesystem.hpp>
 
 using boost::asio::ip::tcp;
 using boost::property_tree::ptree;
@@ -16,12 +15,14 @@ using boost::property_tree::ptree;
 class Server_Session : public std::enable_shared_from_this<Server_Session> {
     tcp::socket socket_;
     std::string username;
-    Message read_msg_;
+    Message read_msg;
     std::map<std::string, std::size_t> paths;
-    std::shared_ptr<Common_Session> commonSession;
     std::deque<Message> write_queue_s;
 
+    void request_handler();
+
 public:
+
     bool server_availability;
 
     Server_Session(tcp::socket &socket);
@@ -38,9 +39,13 @@ public:
 
     void do_write();        //writes the available messages from the queue to the socket
 
+    ~Server_Session();
+
     bool check_database(std::string username, std::string password);
 
     void enqueue_msg(const Message& msg, bool close);
+
+    void update_db_paths();
 
     bool get_paths();
 
