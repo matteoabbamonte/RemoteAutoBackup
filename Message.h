@@ -21,15 +21,11 @@ public:
 
     void zip_message();
 
+    void clear();
+
     char* get_size_ptr();   //get pointer to the beginning of the size buffer
 
-    /*std::shared_ptr<std::string> get_msg_ptr(int size_b);*/    //get pointer to the beginning of the message buffer, initializing the pointer to the char array
-
     std::shared_ptr<std::string> get_msg_ptr();    //get pointer to the beginning of the message buffer
-
-    int get_size_int();     //get the size as int
-
-    bool decode_size();
 
     void decode_message();
 

@@ -11,60 +11,27 @@ void Server_Session::remove_path(const std::string& path) {
 }
 
 void Server_Session::start() {
-    bool error = false;
-    do_read_body(error);
-    /*while (!error) {
-
-    }*/
+    do_read_body();
 }
 
-/*void Server_Session::do_read_size() {
-    std::cout << "Reading message size..." << std::endl;
-    auto self(shared_from_this());
-    std::string prova;
-    boost::asio::async_read(socket_,
-            boost::asio::buffer(read_msg.get_size_ptr(), 10),
-            [this, self](boost::system::error_code ec, std::size_t /*length) {
-                if (!ec && read_msg.decode_size()) {
-                    std::cout << "Size decoded, reading body" << std::endl;
-                    do_read_body();
-                } else {
-                    std::cout << "Error inside do_read_size: ";
-                    std::cerr << ec.message() << std::endl;
-                }
-    });
-}*/
-
-void Server_Session::do_read_body(bool &error) {
+void Server_Session::do_read_body() {
     std::cout << "Reading message body..." << std::endl;
     auto self(shared_from_this());
-    Message read_msg;
+    //Message read_msg;
     boost::asio::async_read_until(socket_,
                                   boost::asio::dynamic_string_buffer(*read_msg.get_msg_ptr()),
                                   delimiter,
-                                  [this, self, &error, &read_msg](const boost::system::error_code ec, std::size_t size){
+                                  [this, self](const boost::system::error_code ec, std::size_t size){
         if (!ec) {
             std::cout << *read_msg.get_msg_ptr() << std::endl;
-            request_handler(read_msg);
-            do_read_body(error);
+            request_handler();
+            read_msg.clear();
+            do_read_body();
         } else {
             std::cout << "Error inside do_read_body: ";
             std::cout << ec.message() << std::endl;
-            error = true;
         }
     });
-
-    /*
-    socket_.async_read_some(boost::asio::buffer(read_msg.get_msg_ptr(read_msg.get_size_int()), read_msg.get_size_int()),
-            [this, self](boost::system::error_code ec, std::size_t /*length) {
-                if (!ec) {
-                    request_handler();
-                    do_read_size();
-                } else {
-                    std::cout << "Error inside do_read_body: ";
-                    std::cout << ec.message() << std::endl;
-                }
-    });*/
 }
 
 void Server_Session::do_write() {
@@ -114,7 +81,6 @@ void Server_Session::update_db_paths() {
     }
     std::stringstream map_to_stream;
     boost::property_tree::write_json(map_to_stream, pt);
-    std::cout << map_to_stream.str() << std::endl;
     sqlite3* conn;
     if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("UPDATE client SET paths = '") + map_to_stream.str() + std::string("' WHERE username = '") + username + std::string("';");
@@ -191,7 +157,7 @@ void Server_Session::enqueue_msg(const Message &msg, bool close) {
     if (close) socket_.close();
 }
 
-void Server_Session::request_handler(Message &read_msg) {
+void Server_Session::request_handler() {
     //std::cout << "Handling request..." << std::endl;
     bool close = false;
     read_msg.decode_message();
@@ -270,18 +236,19 @@ void Server_Session::request_handler(Message &read_msg) {
                 bool isFile = pt.get<bool>("isFile");
                 update_paths(path, hash);
                 std::string relative_path =
-                        std::string("../") + std::string(username) + std::string("/") + std::string(path);
+                        std::string("../../server/") + std::string(username) + std::string("/") + std::string(path);
                 if (!isFile) {
                     // create a directory with the specified name
                     boost::filesystem::create_directory(relative_path);
                 } else {
                     // create a file with the specified name
                     auto content = pt.get<std::string>("content");
+
                     if (relative_path.find(':') < relative_path.size())
                         relative_path.replace(relative_path.find(':'), 1, ".");
                     boost::filesystem::ofstream outFile(relative_path.data());
                     if (!content.empty()) {
-                        outFile.open(relative_path.data(), std::ios::binary);
+                        //outFile.open(relative_path.data());
                         outFile.write(content.data(), content.size());
                         outFile.close();
                     }
