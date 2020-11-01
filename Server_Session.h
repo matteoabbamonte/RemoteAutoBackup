@@ -8,6 +8,7 @@
 #include "Message.h"
 #include "Headers.h"
 #include <boost/filesystem.hpp>
+#define delimiter "\n}\n"
 
 using boost::asio::ip::tcp;
 using boost::property_tree::ptree;
@@ -15,11 +16,10 @@ using boost::property_tree::ptree;
 class Server_Session : public std::enable_shared_from_this<Server_Session> {
     tcp::socket socket_;
     std::string username;
-    Message read_msg;
     std::map<std::string, std::size_t> paths;
     std::deque<Message> write_queue_s;
 
-    void request_handler();
+    void request_handler(Message &read_msg);
 
 public:
 
@@ -29,19 +29,19 @@ public:
 
     void start();
 
-    void update_paths(std::string path, size_t hash);
+    void update_paths(const std::string& path, size_t hash);
 
-    void remove_path(std::string path);
+    void remove_path(const std::string& path);
 
-    void do_read_size();    //reads the size of the entire message and starts the reading of the action
+    //void do_read_size();    //reads the size of the entire message and starts the reading of the action
 
-    void do_read_body();    //reads the message and decodes actions and data
+    void do_read_body(bool &error);    //reads the message and decodes actions and data
 
     void do_write();        //writes the available messages from the queue to the socket
 
     ~Server_Session();
 
-    bool check_database(std::string username, std::string password);
+    bool check_database(const std::string& username, const std::string& password);
 
     void enqueue_msg(const Message& msg, bool close);
 

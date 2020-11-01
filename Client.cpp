@@ -4,6 +4,7 @@
 #include "DirectoryWatcher.h"
 #include "Message.h"
 #include "Headers.h"
+#define delimiter "\n}\n"
 
 using boost::asio::ip::tcp;
 
@@ -22,7 +23,7 @@ class Client {
                     std::cout << "Inside async_connect" << std::endl;
                     if (!ec) {
                         get_credentials();
-                        do_read_size();
+                        do_read_body();
                     } else {
                         std::cout << "Error while connecting: ";
                         std::cerr << ec.message() << std::endl;
@@ -36,11 +37,11 @@ class Client {
         boost::filesystem::ofstream("../../log.txt");
     }
 
-    void do_read_size() {
+    /*void do_read_size() {
         std::cout << "Reading message size..." << std::endl;
         boost::asio::async_read(socket_,
                                 boost::asio::buffer(read_msg_.get_size_ptr(), 10),
-                                [this](boost::system::error_code ec, std::size_t /*length*/)
+                                [this](boost::system::error_code ec, std::size_t /*length)
                                 {
                                     if (!ec && read_msg_.decode_size())
                                     {
@@ -54,14 +55,14 @@ class Client {
                                         running = false;
                                     }
                                 });
-    }
+    }*/
 
     void do_read_body() {
         std::cout << "Reading message body..." << std::endl;
 
         boost::asio::async_read_until(socket_,
                                       boost::asio::dynamic_string_buffer(*read_msg_.get_msg_ptr()),
-                                      "\n}\n",
+                                      delimiter,
                                 [this](boost::system::error_code ec, std::size_t /*length*/)
                                 {
                                     if (!ec)
@@ -71,7 +72,7 @@ class Client {
                                         auto header = static_cast<status_type>(read_msg_.get_header());
                                         std::string data = read_msg_.get_data();
                                         //statusQueue.push_status(header, data);
-                                        if (status_handler(header, data)) do_read_size();
+                                        if (status_handler(header, data)) do_read_body();
                                     }
                                     else {
                                         std::cout << "Error while reding message body: ";
@@ -110,10 +111,10 @@ class Client {
         switch (status) {
             case status_type::in_need:
             {
-                std::string delimiter = "||";
+                std::string separator = "||";
                 size_t pos = 0;
                 std::string path;
-                while ((pos = data.find(delimiter)) != std::string::npos) {
+                while ((pos = data.find(separator)) != std::string::npos) {
                     path = data.substr(0, pos);
                     std::string relative_path = path;
                     if (relative_path.find(':') < relative_path.size())
@@ -126,7 +127,7 @@ class Client {
                     while (inFile.get(buffer))                  // loop getting single characters
                         buffer_vec.emplace_back(buffer);
                     std::string output(buffer_vec.data(), buffer_vec.size());
-                    data.erase(0, pos + delimiter.length());
+                    data.erase(0, pos + separator.length());
                     boost::property_tree::ptree pt;
                     pt.add("path", path);
                     pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
@@ -163,7 +164,7 @@ class Client {
             {
                 std::cout << "Authorized." << std::endl;
                 boost::property_tree::ptree pt;
-                for (auto tuple : DirectoryWatcher::paths_) {
+                for (const auto& tuple : DirectoryWatcher::paths_) {
                     std::string path(tuple.first);
                     path = path.substr(path_to_watch.size()+1);
                     //path = path.substr(path.find('/')+1);

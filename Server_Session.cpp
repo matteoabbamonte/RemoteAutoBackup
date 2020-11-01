@@ -2,25 +2,29 @@
 
 Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)), server_availability(true) {}
 
-void Server_Session::update_paths(std::string path, size_t hash) {
+void Server_Session::update_paths(const std::string& path, size_t hash) {
     paths[path] = hash;
 }
 
-void Server_Session::remove_path(std::string path) {
+void Server_Session::remove_path(const std::string& path) {
     paths.erase(path);
 }
 
 void Server_Session::start() {
-    do_read_size();
+    bool error = false;
+    do_read_body(error);
+    /*while (!error) {
+
+    }*/
 }
 
-void Server_Session::do_read_size() {
+/*void Server_Session::do_read_size() {
     std::cout << "Reading message size..." << std::endl;
     auto self(shared_from_this());
     std::string prova;
     boost::asio::async_read(socket_,
             boost::asio::buffer(read_msg.get_size_ptr(), 10),
-            [this, self](boost::system::error_code ec, std::size_t /*length*/) {
+            [this, self](boost::system::error_code ec, std::size_t /*length) {
                 if (!ec && read_msg.decode_size()) {
                     std::cout << "Size decoded, reading body" << std::endl;
                     do_read_body();
@@ -29,24 +33,24 @@ void Server_Session::do_read_size() {
                     std::cerr << ec.message() << std::endl;
                 }
     });
-}
+}*/
 
-void Server_Session::do_read_body() {
+void Server_Session::do_read_body(bool &error) {
     std::cout << "Reading message body..." << std::endl;
     auto self(shared_from_this());
-    //boost::asio::streambuf b;
-    //std::shared_ptr<std::string> prova = std::make_shared<std::string>();
-    //prova->resize(read_msg.get_size_int());
+    Message read_msg;
     boost::asio::async_read_until(socket_,
                                   boost::asio::dynamic_string_buffer(*read_msg.get_msg_ptr()),
-                                  "\n}\n",
-                                  [this, self](const boost::system::error_code ec, std::size_t size){
+                                  delimiter,
+                                  [this, self, &error, &read_msg](const boost::system::error_code ec, std::size_t size){
         if (!ec) {
-            request_handler();
-            do_read_size();
+            std::cout << *read_msg.get_msg_ptr() << std::endl;
+            request_handler(read_msg);
+            do_read_body(error);
         } else {
             std::cout << "Error inside do_read_body: ";
             std::cout << ec.message() << std::endl;
+            error = true;
         }
     });
 
@@ -81,7 +85,7 @@ void Server_Session::do_write() {
     });
 }
 
-bool Server_Session::check_database(std::string temp_username, std::string password) {
+bool Server_Session::check_database(const std::string& temp_username, const std::string& password) {
     std::cout << "Checking Database..." << std::endl;
     sqlite3* conn;
     int count = 0;
@@ -105,14 +109,13 @@ bool Server_Session::check_database(std::string temp_username, std::string passw
 void Server_Session::update_db_paths() {
     std::cout << "Updating Database..." << std::endl;
     boost::property_tree::ptree pt;
-    for (auto it = paths.begin(); it != paths.end(); it++) {
-        pt.add(it->first, it->second);
+    for (auto & path : paths) {
+        pt.add(path.first, path.second);
     }
     std::stringstream map_to_stream;
     boost::property_tree::write_json(map_to_stream, pt);
     std::cout << map_to_stream.str() << std::endl;
     sqlite3* conn;
-    int count = 0;
     if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("UPDATE client SET paths = '") + map_to_stream.str() + std::string("' WHERE username = '") + username + std::string("';");
         sqlite3_stmt *statement;
@@ -135,7 +138,7 @@ bool Server_Session::get_paths() {
     if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("SELECT paths FROM client WHERE username = '") + username + std::string("';");
         sqlite3_stmt *statement;
-        if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, NULL) == SQLITE_OK) {
+        if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr) == SQLITE_OK) {
             while( sqlite3_step(statement) == SQLITE_ROW ) {
                 paths_ch = const_cast<unsigned char*>(sqlite3_column_text(statement, 0));
             }
@@ -153,7 +156,7 @@ bool Server_Session::get_paths() {
             }
         } else {
             server_availability = false;
-            //std::cout << "Database Connection Error" << std::endl;
+            std::cout << "Database Connection Error" << std::endl;
         }
         sqlite3_finalize(statement);
         sqlite3_close(conn);
@@ -188,10 +191,11 @@ void Server_Session::enqueue_msg(const Message &msg, bool close) {
     if (close) socket_.close();
 }
 
-void Server_Session::request_handler() {
+void Server_Session::request_handler(Message &read_msg) {
+    //std::cout << "Handling request..." << std::endl;
     bool close = false;
     read_msg.decode_message();
-    action_type header = static_cast<action_type>(read_msg.get_header());
+    auto header = static_cast<action_type>(read_msg.get_header());
     std::string data = read_msg.get_data();
     int status_type;
     std::string response_str;
