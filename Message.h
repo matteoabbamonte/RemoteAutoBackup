@@ -23,8 +23,6 @@ public:
 
     void clear();
 
-    char* get_size_ptr();   //get pointer to the beginning of the size buffer
-
     std::shared_ptr<std::string> get_msg_ptr();    //get pointer to the beginning of the message buffer
 
     void decode_message();

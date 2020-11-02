@@ -1,4 +1,5 @@
 #include <iostream>
+#include <backward/strstream>
 #include "Message.h"
 
 Message::Message() {

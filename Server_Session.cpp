@@ -21,9 +21,8 @@ void Server_Session::do_read_body() {
     boost::asio::async_read_until(socket_,
                                   boost::asio::dynamic_string_buffer(*read_msg.get_msg_ptr()),
                                   delimiter,
-                                  [this, self](const boost::system::error_code ec, std::size_t size){
+                                  [this, self](const boost::system::error_code ec, std::size_t /*length*/){
         if (!ec) {
-            std::cout << *read_msg.get_msg_ptr() << std::endl;
             request_handler();
             read_msg.clear();
             do_read_body();
@@ -161,6 +160,7 @@ void Server_Session::request_handler() {
     //std::cout << "Handling request..." << std::endl;
     bool close = false;
     read_msg.decode_message();
+    std::cout << read_msg.get_data() << std::endl;
     auto header = static_cast<action_type>(read_msg.get_header());
     std::string data = read_msg.get_data();
     int status_type;
@@ -235,8 +235,11 @@ void Server_Session::request_handler() {
                 auto hash = pt.get<std::size_t>("hash");
                 bool isFile = pt.get<bool>("isFile");
                 update_paths(path, hash);
-                std::string relative_path =
-                        std::string("../../server/") + std::string(username) + std::string("/") + std::string(path);
+                std::string directory = std::string("../../server/") + std::string(username);
+                if (!boost::filesystem::is_directory(directory)) {
+                    boost::filesystem::create_directory(directory);
+                }
+                std::string relative_path = directory + std::string("/") + std::string(path);
                 if (!isFile) {
                     // create a directory with the specified name
                     boost::filesystem::create_directory(relative_path);

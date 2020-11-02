@@ -82,12 +82,12 @@ class Client {
                         relative_path.replace(relative_path.find(':'), 1, ".");
                     std::ifstream inFile;
                     relative_path = std::string(path_to_watch + "/") + relative_path;
-                    inFile.open(relative_path, std::ios::binary);
+                    inFile.open(relative_path, std::ios::in|std::ios::binary);
                     std::vector<char> buffer_vec;
                     char buffer;
                     while (inFile.get(buffer))                  // loop getting single characters
                         buffer_vec.emplace_back(buffer);
-                    std::string output(buffer_vec.data(), buffer_vec.size());
+                    std::string output(buffer_vec.begin(), buffer_vec.end());
                     data.erase(0, pos + separator.length());
                     boost::property_tree::ptree pt;
                     pt.add("path", path);
