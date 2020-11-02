@@ -1,5 +1,4 @@
 #include <iostream>
-#include <backward/strstream>
 #include "Message.h"
 
 Message::Message() {
@@ -31,6 +30,8 @@ void Message::decode_message() {
     std::stringstream stream;
     std::string string(*msg_ptr);
     stream << (*msg_ptr);
+    stream.seekg(0, stream.beg);
+    std::cout << *msg_ptr << std::endl;
     boost::property_tree::json_parser::read_json(stream, pt);
 }
 

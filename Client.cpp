@@ -43,10 +43,8 @@ class Client {
         boost::asio::async_read_until(socket_,
                                       boost::asio::dynamic_string_buffer(*read_msg_.get_msg_ptr()),
                                       delimiter,
-                                [this](boost::system::error_code ec, std::size_t /*length*/)
-                                {
-                                    if (!ec)
-                                    {
+                                [this](boost::system::error_code ec, std::size_t /*length*/) {
+                                    if (!ec) {
                                         read_msg_.decode_message();
                                         //change header to status
                                         auto header = static_cast<status_type>(read_msg_.get_header());
@@ -87,13 +85,12 @@ class Client {
                     char buffer;
                     while (inFile.get(buffer))                  // loop getting single characters
                         buffer_vec.emplace_back(buffer);
-                    std::string output(buffer_vec.begin(), buffer_vec.end());
                     data.erase(0, pos + separator.length());
                     boost::property_tree::ptree pt;
                     pt.add("path", path);
                     pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
                     pt.add("isFile", DirectoryWatcher::paths_[relative_path].isFile);
-                    pt.add("content", output);
+                    /pt.add("content", &buffer_vec[0]);
 
                     //writing message
                     std::stringstream file_stream;
@@ -161,24 +158,19 @@ class Client {
     void do_write() {
         std::cout << "Writing message..." << std::endl;
         boost::asio::async_write(socket_,
-                                 boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
-                                 [this](boost::system::error_code ec, std::size_t /*length*/)
-                                 {
-                                     if (!ec)
-                                     {
-                                         write_queue_c.pop_front();
-                                         if (!write_queue_c.empty())
-                                         {
-                                             do_write();
-                                         }
-                                     }
-                                     else
-                                     {
-                                         std::cout << "Error while writing: ";
-                                         std::cout << ec.message() << std::endl;
-                                         socket_.close();
-                                     }
-                                 });
+                boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
+                [this](boost::system::error_code ec, std::size_t /*length*/) {
+                            if (!ec) {
+                                write_queue_c.pop_front();
+                                if (!write_queue_c.empty()) {
+                                    do_write();
+                                }
+                            } else {
+                                std::cout << "Error while writing: ";
+                                std::cout << ec.message() << std::endl;
+                                socket_.close();
+                            }
+                });
     }
 
     void enqueue_msg(const Message &msg) {

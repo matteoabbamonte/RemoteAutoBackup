@@ -13,8 +13,6 @@ class Message {
 public:
     Message();
 
-    /*~Message();*/
-
     void encode_header(int header);
 
     void encode_data(std::string& data);
@@ -34,4 +32,7 @@ public:
     std::tuple<std::string, std::string> get_credentials();
 
     void put_credentials(const std::string& username, const std::string& password);
+
+    // ~Message();
+
 };

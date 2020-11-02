@@ -17,7 +17,6 @@ void Server_Session::start() {
 void Server_Session::do_read_body() {
     std::cout << "Reading message body..." << std::endl;
     auto self(shared_from_this());
-    //Message read_msg;
     boost::asio::async_read_until(socket_,
                                   boost::asio::dynamic_string_buffer(*read_msg.get_msg_ptr()),
                                   delimiter,
