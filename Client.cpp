@@ -1,6 +1,7 @@
 #include <iostream>
 #include <boost/asio.hpp>
 #include <deque>
+#include <queue>
 #include "DirectoryWatcher.h"
 #include "Message.h"
 #include "Headers.h"
@@ -14,7 +15,7 @@ class Client {
     boost::asio::io_context& io_context_;
     tcp::socket socket_;
     Message read_msg_;
-    std::deque<Message> write_queue_c;
+    std::queue<Message> write_queue_c;
     bool & running;
     std::string path_to_watch;
 
@@ -51,8 +52,8 @@ class Client {
                                         //change header to status
                                         auto header = static_cast<status_type>(read_msg_.get_header());
                                         std::string data = read_msg_.get_data();
+                                        read_msg_.clear();
                                         if (status_handler(header, data)) {
-                                            read_msg_.clear();
                                             do_read_body();
                                         }
                                     }
@@ -167,7 +168,7 @@ class Client {
                 boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
                 [this](boost::system::error_code ec, std::size_t /*length*/) {
                             if (!ec) {
-                                write_queue_c.pop_front();
+                                write_queue_c.pop();
                                 if (!write_queue_c.empty()) {
                                     do_write();
                                 }
@@ -180,7 +181,7 @@ class Client {
     }
 
     void enqueue_msg(const Message &msg) {
-        write_queue_c.emplace_back(msg);
+        write_queue_c.push(msg);
         do_write();
     }
 

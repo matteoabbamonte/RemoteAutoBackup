@@ -7,7 +7,6 @@
 
 class Message {
     boost::property_tree::ptree pt;
-    char *size;
     std::shared_ptr<std::string> msg_ptr;
 
 public:

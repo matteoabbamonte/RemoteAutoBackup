@@ -24,6 +24,7 @@ void Message::zip_message() {
 }
 
 std::shared_ptr<std::string> Message::get_msg_ptr() {
+    std::string temp(*msg_ptr);
     return msg_ptr;
 }
 
@@ -32,6 +33,7 @@ void Message::decode_message() {
     std::stringstream stream;
     stream << (*msg_ptr);
     //stream.seekg(0, stream.beg);
+    std::string temp(stream.str());
     read_json(stream, pt);
     //boost::property_tree::json_parser::read_json(stream, pt);
 }
