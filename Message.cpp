@@ -6,17 +6,19 @@ Message::Message() {
 }
 
 void Message::encode_header(int header) {
-    pt.put("header", header);
+    pt.add("header", header);
 }
 
 void Message::encode_data(std::string& data) {
-    pt.put("data", data);
+    pt.add("data", data);
 }
 
 void Message::zip_message() {
     std::stringstream message_stream;
     boost::property_tree::json_parser::write_json(message_stream, pt);
-    std::string message_string = message_stream.str();
+    std::string message_string(message_stream.str());
+    //boost::property_tree::ptree pt1;
+    //read_json(message_stream, pt1);
     msg_ptr = std::make_shared<std::string>(message_string);
     msg_ptr->resize(message_string.size());
 }
@@ -26,13 +28,12 @@ std::shared_ptr<std::string> Message::get_msg_ptr() {
 }
 
 void Message::decode_message() {
-    msg_ptr->shrink_to_fit();
+    //msg_ptr->shrink_to_fit();
     std::stringstream stream;
-    std::string string(*msg_ptr);
     stream << (*msg_ptr);
-    stream.seekg(0, stream.beg);
-    std::cout << *msg_ptr << std::endl;
-    boost::property_tree::json_parser::read_json(stream, pt);
+    //stream.seekg(0, stream.beg);
+    read_json(stream, pt);
+    //boost::property_tree::json_parser::read_json(stream, pt);
 }
 
 int Message::get_header() {

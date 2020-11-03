@@ -4,6 +4,8 @@
 #include "DirectoryWatcher.h"
 #include "Message.h"
 #include "Headers.h"
+#include "Base64/base64.h"
+
 #define delimiter "\n}\n"
 
 using boost::asio::ip::tcp;
@@ -75,31 +77,35 @@ class Client {
                 std::string path;
                 while ((pos = data.find(separator)) != std::string::npos) {
                     path = data.substr(0, pos);
+                    data.erase(0, pos + separator.length());
                     std::string relative_path = path;
                     if (relative_path.find(':') < relative_path.size())
                         relative_path.replace(relative_path.find(':'), 1, ".");
                     std::ifstream inFile;
                     relative_path = std::string(path_to_watch + "/") + relative_path;
                     inFile.open(relative_path, std::ios::in|std::ios::binary);
-                    std::vector<char> buffer_vec;
-                    char buffer;
-                    while (inFile.get(buffer))                  // loop getting single characters
-                        buffer_vec.emplace_back(buffer);
-                    data.erase(0, pos + separator.length());
+                    //std::vector<char> buffer_vec;
+                    std::vector<BYTE> buffer_vec;
+                    char ch;
+                    while (inFile.get(ch))                  // loop getting single characters
+                        buffer_vec.emplace_back(ch);
+                    std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
                     boost::property_tree::ptree pt;
                     pt.add("path", path);
                     pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
                     pt.add("isFile", DirectoryWatcher::paths_[relative_path].isFile);
-                    /pt.add("content", &buffer_vec[0]);
+                    pt.add("content", encodedData);
 
                     //writing message
                     std::stringstream file_stream;
-                    boost::property_tree::write_json(file_stream, pt);
-                    std::string file_string = file_stream.str();
+                    write_json(file_stream, pt, false);
+                    //boost::property_tree::write_json(file_stream, pt);
+
+                    std::string file_string(file_stream.str());
 
                     Message write_msg;
-                    write_msg.encode_data(file_string);
                     write_msg.encode_header(2);
+                    write_msg.encode_data(file_string);
                     write_msg.zip_message();
                     enqueue_msg(write_msg);
                 }

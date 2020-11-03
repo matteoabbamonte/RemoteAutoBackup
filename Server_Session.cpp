@@ -1,4 +1,5 @@
 #include "Server_Session.h"
+#include "Base64/base64.h"
 
 Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)), server_availability(true) {}
 
@@ -159,7 +160,6 @@ void Server_Session::request_handler() {
     //std::cout << "Handling request..." << std::endl;
     bool close = false;
     read_msg.decode_message();
-    std::cout << read_msg.get_data() << std::endl;
     auto header = static_cast<action_type>(read_msg.get_header());
     std::string data = read_msg.get_data();
     int status_type;
@@ -245,13 +245,13 @@ void Server_Session::request_handler() {
                 } else {
                     // create a file with the specified name
                     auto content = pt.get<std::string>("content");
+                    std::vector<BYTE> decodedData = base64_decode(content);
 
                     if (relative_path.find(':') < relative_path.size())
                         relative_path.replace(relative_path.find(':'), 1, ".");
                     boost::filesystem::ofstream outFile(relative_path.data());
                     if (!content.empty()) {
-                        //outFile.open(relative_path.data());
-                        outFile.write(content.data(), content.size());
+                        outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
                         outFile.close();
                     }
                 }
