@@ -14,7 +14,10 @@ using boost::asio::ip::tcp;
 class Client {
     boost::asio::io_context& io_context_;
     tcp::socket socket_;
+    std::mutex m;
+    std::condition_variable cv_write;
     Message read_msg_;
+    std::queue<Message> read_queue_c;
     std::queue<Message> write_queue_c;
     bool & running;
     std::string path_to_watch;
@@ -42,18 +45,13 @@ class Client {
 
     void do_read_body() {
         std::cout << "Reading message body..." << std::endl;
-
+        Message msg;
         boost::asio::async_read_until(socket_,
-                                      boost::asio::dynamic_string_buffer(*read_msg_.get_msg_ptr()),
+                                      boost::asio::dynamic_string_buffer(*msg.get_msg_ptr()),
                                       delimiter,
-                                [this](boost::system::error_code ec, std::size_t /*length*/) {
+                                [this, msg](boost::system::error_code ec, std::size_t /*length*/) {
                                     if (!ec) {
-                                        read_msg_.decode_message();
-                                        //change header to status
-                                        auto header = static_cast<status_type>(read_msg_.get_header());
-                                        std::string data = read_msg_.get_data();
-                                        read_msg_.clear();
-                                        if (status_handler(header, data)) {
+                                        if (status_handler(msg)) {
                                             do_read_body();
                                         }
                                     }
@@ -66,7 +64,11 @@ class Client {
                                 });
     }
 
-    bool status_handler(int status, std::string data) {
+    bool status_handler(Message msg) {
+        msg.decode_message();
+        auto status = static_cast<status_type>(msg.get_header()); //change header to status
+        std::string data = msg.get_data();
+        msg.clear();
         boost::filesystem::ofstream outFile;
         bool return_value = true;
         outFile.open("../../log.txt", std::ios::app);
@@ -163,26 +165,31 @@ class Client {
     }
 
     void do_write() {
+        std::unique_lock ul(m);
+        cv_write.wait(ul, [this](){return !write_queue_c.empty();});
         std::cout << "Writing message..." << std::endl;
-        boost::asio::async_write(socket_,
+        std::string str(*write_queue_c.front().get_msg_ptr());
+        boost::asio::write(socket_,
+                           boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()));
+        write_queue_c.pop();
+        /*boost::asio::write(socket_,
                 boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
-                [this](boost::system::error_code ec, std::size_t /*length*/) {
+                [this](boost::system::error_code ec, std::size_t /*length) {
                             if (!ec) {
                                 write_queue_c.pop();
-                                if (!write_queue_c.empty()) {
-                                    do_write();
-                                }
                             } else {
                                 std::cout << "Error while writing: ";
                                 std::cout << ec.message() << std::endl;
                                 socket_.close();
                             }
-                });
+                });*/
     }
 
     void enqueue_msg(const Message &msg) {
+        std::lock_guard lg(m);
+        std::cout << "Pushing" << std::endl;
         write_queue_c.push(msg);
-        do_write();
+        cv_write.notify_all();
     }
 
     void get_credentials() {
@@ -203,6 +210,12 @@ public:
     Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running, std::string path_to_watch) : io_context_(io_context), socket_(io_context), running(running), path_to_watch(path_to_watch) {
         do_connect(endpoints);
         create_log_file();
+        std::thread write_thread([this](){
+            while (true) {
+                do_write();
+            }
+        });
+        write_thread.detach();
     }
 
     static void send_actions(std::string path_to_watch, FileStatus status, bool isFile) {

@@ -8,6 +8,8 @@
 #include "Message.h"
 #include "Headers.h"
 #include <boost/filesystem.hpp>
+#include <queue>
+
 #define delimiter "\n}\n"
 
 using boost::asio::ip::tcp;
@@ -17,10 +19,10 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     tcp::socket socket_;
     std::string username;
     std::map<std::string, std::size_t> paths;
-    std::deque<Message> write_queue_s;
+    std::queue<Message> write_queue_s;
     Message read_msg;
 
-    void request_handler();
+    void request_handler(Message msg);
 
 public:
 

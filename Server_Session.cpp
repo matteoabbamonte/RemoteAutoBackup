@@ -18,13 +18,14 @@ void Server_Session::start() {
 void Server_Session::do_read_body() {
     std::cout << "Reading message body..." << std::endl;
     auto self(shared_from_this());
+    Message msg;
     boost::asio::async_read_until(socket_,
-                                  boost::asio::dynamic_string_buffer(*read_msg.get_msg_ptr()),
+                                  boost::asio::dynamic_string_buffer(*msg.get_msg_ptr()),
                                   delimiter,
-                                  [this, self](const boost::system::error_code ec, std::size_t /*length*/){
+                                  [this, self, msg](const boost::system::error_code ec, std::size_t /*length*/){
         if (!ec) {
-            request_handler();
-            read_msg.clear();
+            request_handler(msg);
+            //read_msg.clear();
             do_read_body();
         } else {
             std::cout << "Error inside do_read_body: ";
@@ -40,7 +41,7 @@ void Server_Session::do_write() {
             boost::asio::dynamic_string_buffer(*write_queue_s.front().get_msg_ptr()),
             [this, self](boost::system::error_code ec, std::size_t /*length*/) {
                 if (!ec) {
-                    write_queue_s.pop_front();
+                    write_queue_s.pop();
                     if (!write_queue_s.empty()) {
                         do_write();
                     }
@@ -151,17 +152,17 @@ std::vector<std::string> Server_Session::compare_paths(ptree client_pt) {
 }
 
 void Server_Session::enqueue_msg(const Message &msg, bool close) {
-    write_queue_s.emplace_back(msg);
+    write_queue_s.push(msg);
     do_write();
     if (close) socket_.close();
 }
 
-void Server_Session::request_handler() {
+void Server_Session::request_handler(Message msg) {
     //std::cout << "Handling request..." << std::endl;
     bool close = false;
-    read_msg.decode_message();
-    auto header = static_cast<action_type>(read_msg.get_header());
-    std::string data = read_msg.get_data();
+    msg.decode_message();
+    auto header = static_cast<action_type>(msg.get_header());
+    std::string data = msg.get_data();
     int status_type;
     std::string response_str;
     Message response_msg;
@@ -178,7 +179,7 @@ void Server_Session::request_handler() {
 
             case (action_type::login) : {
 
-                auto credentials = read_msg.get_credentials();
+                auto credentials = msg.get_credentials();
                 bool found = Server_Session::check_database(std::get<0>(credentials), std::get<1>(credentials));
                 if (found) {
                     username = std::get<0>(credentials);
@@ -316,7 +317,7 @@ void Server_Session::request_handler() {
         }
 
     }
-    read_msg.clear();
+    //read_msg.clear();
     // creating response message
     //std::cout << "Sending " << response_str << std::endl;
     response_msg.encode_header(status_type);
