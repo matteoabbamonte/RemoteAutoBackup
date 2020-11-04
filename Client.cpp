@@ -101,8 +101,8 @@ class Client {
 
                     //writing message
                     std::stringstream file_stream;
-                    write_json(file_stream, pt, false);
-                    //boost::property_tree::write_json(file_stream, pt);
+                    //write_json(file_stream, pt, false);
+                    boost::property_tree::write_json(file_stream, pt, false);
 
                     std::string file_string(file_stream.str());
 
@@ -168,9 +168,8 @@ class Client {
         std::unique_lock ul(m);
         cv_write.wait(ul, [this](){return !write_queue_c.empty();});
         std::cout << "Writing message..." << std::endl;
-        std::string str(*write_queue_c.front().get_msg_ptr());
-        boost::asio::write(socket_,
-                           boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()));
+        //std::string str(*write_queue_c.front().get_msg_ptr());
+        boost::asio::write(socket_, boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()));
         write_queue_c.pop();
         /*boost::asio::write(socket_,
                 boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),

@@ -22,7 +22,7 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     std::queue<Message> write_queue_s;
     Message read_msg;
 
-    void request_handler(Message msg);
+    void request_handler(Message msg, size_t length);
 
 public:
 
