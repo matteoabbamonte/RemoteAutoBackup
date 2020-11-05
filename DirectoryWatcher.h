@@ -19,14 +19,13 @@ struct RecPath {
 class DirectoryWatcher {
     bool & running;
     std::string path_to_watch;
-    inline static std::unordered_map<std::string, RecPath> paths_;
+    inline static std::map<std::string, RecPath> paths_;
     std::chrono::duration<int, std::milli> delay;
 
     //private methods
 
     size_t dirFile_Size(boost::filesystem::directory_entry& element);
 
-    std::string get_path_to_watch();
 
     size_t make_hash(boost::filesystem::directory_entry& element);
 

@@ -16,8 +16,7 @@ class Client {
     tcp::socket socket_;
     std::mutex m;
     std::condition_variable cv_write;
-    Message read_msg_;
-    std::queue<Message> read_queue_c;
+    boost::asio::streambuf buf;
     std::queue<Message> write_queue_c;
     bool & running;
     std::string path_to_watch;
@@ -45,12 +44,17 @@ class Client {
 
     void do_read_body() {
         std::cout << "Reading message body..." << std::endl;
-        Message msg;
         boost::asio::async_read_until(socket_,
-                                      boost::asio::dynamic_string_buffer(*msg.get_msg_ptr()),
+                                      buf,
                                       delimiter,
-                                [this, msg](boost::system::error_code ec, std::size_t /*length*/) {
+                                [this](boost::system::error_code ec, std::size_t length) {
                                     if (!ec) {
+                                        std::string str(boost::asio::buffers_begin(buf.data()),
+                                                        boost::asio::buffers_begin(buf.data()) + buf.size());
+                                        buf.consume(length);
+                                        Message msg;
+                                        *msg.get_msg_ptr() = str;
+                                        msg.get_msg_ptr()->resize(length);
                                         if (status_handler(msg)) {
                                             do_read_body();
                                         }

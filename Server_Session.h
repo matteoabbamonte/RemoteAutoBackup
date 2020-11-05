@@ -20,9 +20,9 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     std::string username;
     std::map<std::string, std::size_t> paths;
     std::queue<Message> write_queue_s;
-    Message read_msg;
+    boost::asio::streambuf buf;
 
-    void request_handler(Message msg, size_t length);
+    void request_handler(Message msg);
 
 public:
 

@@ -18,15 +18,19 @@ void Server_Session::start() {
 void Server_Session::do_read_body() {
     std::cout << "Reading message body..." << std::endl;
     auto self(shared_from_this());
-    Message msg;
     boost::asio::async_read_until(socket_,
-                                  boost::asio::dynamic_string_buffer(*msg.get_msg_ptr()),
+                                  buf,
                                   delimiter,
-                                  [this, self, msg](const boost::system::error_code ec, std::size_t length){
+                                  [this, self](const boost::system::error_code ec, std::size_t length){
         if (!ec) {
-            request_handler(msg, length);
+            std::string str(boost::asio::buffers_begin(buf.data()),
+                            boost::asio::buffers_begin(buf.data()) + buf.size());
+            buf.consume(length);
+            Message msg;
+            *msg.get_msg_ptr() = str;
+            msg.get_msg_ptr()->resize(length);
+            request_handler(msg);
             do_read_body();
-            //read_msg.clear();
         } else {
             std::cout << "Error inside do_read_body: ";
             std::cout << ec.message() << std::endl;
@@ -158,9 +162,8 @@ void Server_Session::enqueue_msg(const Message &msg, bool close) {
     if (close) socket_.close();
 }
 
-void Server_Session::request_handler(Message msg, size_t length) {
+void Server_Session::request_handler(Message msg) {
     //std::cout << *msg.get_msg_ptr() << std::endl;
-    msg.get_msg_ptr()->resize(length);
     bool close = false;
     msg.decode_message();
     auto header = static_cast<action_type>(msg.get_header());
