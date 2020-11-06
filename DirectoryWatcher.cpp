@@ -22,7 +22,7 @@ size_t DirectoryWatcher::dirFile_Size(boost::filesystem::directory_entry& elemen
     return accum;
 }
 
-void DirectoryWatcher::start(const std::function<void (std::string, FileStatus, bool)> &action) {
+void DirectoryWatcher::start(std::function<void (std::string, FileStatus, bool)> action) {
     while(running) {
         // Wait for "delay" milliseconds
         std::this_thread::sleep_for(delay);
@@ -61,4 +61,5 @@ size_t DirectoryWatcher::make_hash(boost::filesystem::directory_entry& element) 
     std::string loc_string = element.path().string() + std::to_string(lats_time_mod) + std::to_string(dirFile_Size(element));
     return loc_hash(loc_string);
 }
+
 

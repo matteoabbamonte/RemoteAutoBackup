@@ -17,7 +17,6 @@ class Client {
     boost::asio::streambuf buf;
     std::queue<Message> write_queue_c;
     bool & running;
-    std::string path_to_watch;
 
     void do_connect(const tcp::resolver::results_type& endpoints) {
         std::cout << "Trying to connect..." << std::endl;
@@ -200,12 +199,6 @@ class Client {
                 });
     }
 
-    void enqueue_msg(const Message &msg) {
-        bool write_in_progress = !write_queue_c.empty();
-        write_queue_c.push(msg);
-        if (!write_in_progress) do_write();
-    }
-
     void get_credentials() {
         std::string username;
         std::cout << "Insert username: ";
@@ -221,35 +214,15 @@ class Client {
     }
 
 public:
-    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running, std::string path_to_watch) : io_context_(io_context), socket_(io_context), running(running), path_to_watch(path_to_watch) {
+    std::string path_to_watch;
+
+    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running, std::string path_to_watch) :
+            io_context_(io_context),
+            socket_(io_context),
+            running(running),
+            path_to_watch(path_to_watch) {
         do_connect(endpoints);
         create_log_file();
-    }
-
-    static void send_actions(std::string path_to_watch, FileStatus status, bool isFile) {
-        // Process only regular files, all other file types are ignored
-        if(boost::filesystem::is_regular_file(boost::filesystem::path(path_to_watch)) || boost::filesystem::is_directory(boost::filesystem::path(path_to_watch)) || status == FileStatus::erased) {
-            switch(status) {
-                case FileStatus::created:
-                    if (isFile) {
-                        std::cout << "File created: " << path_to_watch << '\n';
-                    } else std::cout << "Directory created: " << path_to_watch << '\n';
-                    break;
-                case FileStatus::modified:
-                    if (isFile) {
-                        std::cout << "File modified: " << path_to_watch << '\n';
-                    } else std::cout << "Directory modified: " << path_to_watch << '\n';
-                    break;
-                case FileStatus::erased:
-                    if (isFile) {
-                        std::cout << "File erased: " << path_to_watch << '\n';
-                    } else std::cout << "Directory erased: " << path_to_watch << '\n';
-                    break;
-                default:
-                    std::cout << "Error! Unknown file status.\n";
-            }
-        } else return;
-
     }
 
     void close() {
@@ -257,6 +230,12 @@ public:
             socket_.close();
             //running = false;
         });
+    }
+
+    void enqueue_msg(const Message &msg) {
+        bool write_in_progress = !write_queue_c.empty();
+        write_queue_c.push(msg);
+        if (!write_in_progress) do_write();
     }
 };
 
@@ -271,6 +250,7 @@ bool stop() {
     return false;
 }
 
+
 int main(int argc, char* argv[]) {
     try {
 
@@ -279,6 +259,8 @@ int main(int argc, char* argv[]) {
             std::cerr << "Usage: Client <host> <port> <rel_path_to_watch>\n";
             return 1;
         }
+
+        std::string path_to_watch = argv[3];
 
         do {
 
@@ -289,18 +271,73 @@ int main(int argc, char* argv[]) {
 
             bool running = true;
 
-            Client cl(io_context, endpoints, running, argv[3]);
-
             // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
-            DirectoryWatcher fw{argv[3], std::chrono::milliseconds(5000), running};
+            DirectoryWatcher dw{path_to_watch, std::chrono::milliseconds(5000), running};
+
+            Client cl(io_context, endpoints, running, path_to_watch);
 
             std::thread t([&io_context](){ io_context.run(); });
 
-            t.join();
-
             // Start monitoring a folder for changes and (in case of changes)
             // run a user provided lambda function
-            fw.start(Client::send_actions);
+            dw.start([&](std::string path, FileStatus status, bool isFile) {
+                // Process only regular files, all other file types are ignored
+                if(boost::filesystem::is_regular_file(boost::filesystem::path(path)) || boost::filesystem::is_directory(boost::filesystem::path(path)) || status == FileStatus::erased) {
+                    switch(status) {
+                        case FileStatus::created: {
+                            path = path.substr(path_to_watch.size() + 1);
+                            if (isFile) {
+                                std::cout << "File created: " << path << '\n';
+                            } else std::cout << "Directory created: " << path << '\n';
+
+                            std::string relative_path = path;
+                            if (relative_path.find(':') < relative_path.size())
+                                relative_path.replace(relative_path.find(':'), 1, ".");
+                            std::ifstream inFile;
+                            //relative_path = std::string(path_to_watch + "/") + relative_path;
+                            inFile.open(relative_path, std::ios::in|std::ios::binary);
+                            std::vector<BYTE> buffer_vec;
+                            char ch;
+                            while (inFile.get(ch))                  // loop getting single characters
+                                buffer_vec.emplace_back(ch);
+                            std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
+                            boost::property_tree::ptree pt;
+                            pt.add("path", path);
+                            pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
+                            pt.add("isFile", isFile);
+                            pt.add("content", encodedData);
+
+                            //writing message
+                            std::stringstream file_stream;
+                            boost::property_tree::write_json(file_stream, pt, false);
+
+                            std::string file_string(file_stream.str());
+
+                            Message write_msg;
+                            write_msg.encode_header(2);
+                            write_msg.encode_data(file_string);
+                            write_msg.zip_message();
+                            cl.enqueue_msg(write_msg);
+
+                            break;
+                        }
+                        case FileStatus::modified:
+                            if (isFile) {
+                                std::cout << "File modified: " << path_to_watch << '\n';
+                            } else std::cout << "Directory modified: " << path_to_watch << '\n';
+                            break;
+                        case FileStatus::erased:
+                            if (isFile) {
+                                std::cout << "File erased: " << path_to_watch << '\n';
+                            } else std::cout << "Directory erased: " << path_to_watch << '\n';
+                            break;
+                        default:
+                            std::cout << "Error! Unknown file status.\n";
+                    }
+                }
+            });
+
+            t.join();
 
         } while (!stop());
 

@@ -19,3 +19,9 @@ enum action_type {
     update = 3,
     erase = 4
 };
+
+enum class FileStatus {
+    created,
+    modified,
+    erased
+};
