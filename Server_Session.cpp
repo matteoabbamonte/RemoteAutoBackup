@@ -276,20 +276,26 @@ void Server_Session::request_handler(Message msg) {
                 boost::property_tree::json_parser::read_json(data_stream, pt);
                 auto path = pt.get<std::string>("path");
                 auto hash = pt.get<std::size_t>("hash");
-                bool isDirectory = pt.get<bool>("isDirectory");
+                bool isFile = pt.get<bool>("isFile");
+                //bool isDirectory = pt.get<bool>("isDirectory");
                 update_paths(path, hash);
-                if (!isDirectory) {
+                if (isFile) {
                     auto content = pt.get<std::string>("content");
-                    std::string relative_path =
-                            std::string("../") + std::string(username) + std::string("/") +
-                            std::string(path);
+                    std::vector<BYTE> decodedData = base64_decode(content);
+
+                    std::string directory = std::string("../../server/") + std::string(username);
+                    std::string relative_path = directory + std::string("/") + std::string(path);
                     if (relative_path.find(':') < relative_path.size())
                         relative_path.replace(relative_path.find(':'), 1, ".");
-                    boost::filesystem::remove(relative_path.data());
+
+                    boost::filesystem::remove_all(relative_path.data());
+
                     boost::filesystem::ofstream outFile(relative_path.data());
-                    outFile.open(relative_path.data(), std::ios::binary);
-                    outFile.write(content.data(), content.size());
-                    outFile.close();
+                    //outFile.open(relative_path.data(), std::ios::binary);
+                    if (!content.empty()) {
+                        outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
+                        outFile.close();
+                    }
                 }
 
                 status_type = 2;
