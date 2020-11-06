@@ -276,54 +276,49 @@ int main(int argc, char* argv[]) {
             // Start monitoring a folder for changes and (in case of changes) run a user provided lambda function
             dw.start([&](std::string path, FileStatus status, bool isFile) {
                 // Process only regular files, all other file types are ignored
-                if(boost::filesystem::is_regular_file(boost::filesystem::path(path)) || boost::filesystem::is_directory(boost::filesystem::path(path)) || status == FileStatus::erased) {
+                if (boost::filesystem::is_regular_file(boost::filesystem::path(path))
+                        || boost::filesystem::is_directory(boost::filesystem::path(path))
+                        || status == FileStatus::erased) {
+                    boost::property_tree::ptree pt;
+                    int action_type;
+                    std::string relative_path = path;
+                    path = path.substr(path_to_watch.size() + 1);
+
                     switch(status) {
+
                         case FileStatus::created: {
 
-                            std::string relative_path = path;
-                            path = path.substr(path_to_watch.size() + 1);
-                            if (isFile) {
+                            if (isFile)
                                 std::cout << "File created: " << path << '\n';
-                            } else
+                            else
                                 std::cout << "Directory created: " << path << '\n';
+
                             if (relative_path.find(':') < relative_path.size())
                                 relative_path.replace(relative_path.find(':'), 1, ".");
+
                             std::ifstream inFile;
                             inFile.open(relative_path, std::ios::in|std::ios::binary);
                             std::vector<BYTE> buffer_vec;
                             char ch;
-                            while (inFile.get(ch))                  // loop getting single characters
+                            while (inFile.get(ch))
                                 buffer_vec.emplace_back(ch);
                             std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
-                            boost::property_tree::ptree pt;
+
                             pt.add("path", path);
                             pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
                             pt.add("isFile", isFile);
                             pt.add("content", encodedData);
 
-                            //writing message
-                            std::stringstream file_stream;
-                            boost::property_tree::write_json(file_stream, pt, false);
-
-                            std::string file_string(file_stream.str());
-
-                            Message write_msg;
-                            write_msg.encode_header(2);
-                            write_msg.encode_data(file_string);
-                            write_msg.zip_message();
-                            cl.enqueue_msg(write_msg);
+                            action_type = 2;
 
                             break;
                         }
 
                         case FileStatus::modified : {
 
-                            std::string relative_path = path;
-                            path = path.substr(path_to_watch.size() + 1);
-
                             if (relative_path.find(':') < relative_path.size())
                                 relative_path.replace(relative_path.find(':'), 1, ".");
-                            boost::property_tree::ptree pt;
+
                             pt.add("path", path);
                             pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
                             pt.add("isFile", isFile);
@@ -335,7 +330,7 @@ int main(int argc, char* argv[]) {
                                 inFile.open(relative_path, std::ios::in|std::ios::binary);
                                 std::vector<BYTE> buffer_vec;
                                 char ch;
-                                while (inFile.get(ch))                  // loop getting single characters
+                                while (inFile.get(ch))
                                     buffer_vec.emplace_back(ch);
                                 std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
                                 pt.add("content", encodedData);
@@ -343,34 +338,16 @@ int main(int argc, char* argv[]) {
                             } else
                                 std::cout << "Directory modified: " << relative_path << '\n';
 
-                            std::stringstream file_stream;
-                            boost::property_tree::write_json(file_stream, pt, false);
-                            std::string file_string(file_stream.str());
-
-                            Message write_msg;
-                            write_msg.encode_header(3);
-                            write_msg.encode_data(file_string);
-                            write_msg.zip_message();
-                            cl.enqueue_msg(write_msg);
+                            action_type = 3;
 
                             break;
 
                         }
 
                         case FileStatus::erased : {
-                            path = path.substr(path_to_watch.size() + 1);
-                            boost::property_tree::ptree pt;
+
                             pt.add("path", path);
-
-                            std::stringstream file_stream;
-                            boost::property_tree::write_json(file_stream, pt, false);
-                            std::string file_string(file_stream.str());
-
-                            Message write_msg;
-                            write_msg.encode_header(4);
-                            write_msg.encode_data(file_string);
-                            write_msg.zip_message();
-                            cl.enqueue_msg(write_msg);
+                            action_type = 4;
 
                             if (isFile)
                                 std::cout << "File erased: " << path << '\n';
@@ -383,6 +360,18 @@ int main(int argc, char* argv[]) {
                         default:
                             std::cout << "Error! Unknown file status.\n";
                     }
+
+                    //writing message
+                    std::stringstream file_stream;
+                    boost::property_tree::write_json(file_stream, pt, false);
+
+                    std::string file_string(file_stream.str());
+
+                    Message write_msg;
+                    write_msg.encode_header(action_type);
+                    write_msg.encode_data(file_string);
+                    write_msg.zip_message();
+                    cl.enqueue_msg(write_msg);
                 }
             });
 

@@ -277,7 +277,6 @@ void Server_Session::request_handler(Message msg) {
                 auto path = pt.get<std::string>("path");
                 auto hash = pt.get<std::size_t>("hash");
                 bool isFile = pt.get<bool>("isFile");
-                //bool isDirectory = pt.get<bool>("isDirectory");
                 update_paths(path, hash);
                 if (isFile) {
                     auto content = pt.get<std::string>("content");
@@ -291,7 +290,6 @@ void Server_Session::request_handler(Message msg) {
                     boost::filesystem::remove_all(relative_path.data());
 
                     boost::filesystem::ofstream outFile(relative_path.data());
-                    //outFile.open(relative_path.data(), std::ios::binary);
                     if (!content.empty()) {
                         outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
                         outFile.close();
