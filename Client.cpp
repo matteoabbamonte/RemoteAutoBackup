@@ -285,12 +285,11 @@ int main(int argc, char* argv[]) {
                 if(boost::filesystem::is_regular_file(boost::filesystem::path(path)) || boost::filesystem::is_directory(boost::filesystem::path(path)) || status == FileStatus::erased) {
                     switch(status) {
                         case FileStatus::created: {
+                            std::string relative_path = path;
                             path = path.substr(path_to_watch.size() + 1);
                             if (isFile) {
                                 std::cout << "File created: " << path << '\n';
                             } else std::cout << "Directory created: " << path << '\n';
-
-                            std::string relative_path = path;
                             if (relative_path.find(':') < relative_path.size())
                                 relative_path.replace(relative_path.find(':'), 1, ".");
                             std::ifstream inFile;
