@@ -305,10 +305,11 @@ void Server_Session::request_handler(Message msg) {
                 boost::property_tree::json_parser::read_json(data_stream, pt);
                 auto path = pt.get<std::string>("path");
                 remove_path(path);
-                std::string relative_path = std::string("../") + std::string(username) + std::string("/") + std::string(path);
+                std::string directory = std::string("../../server/") + std::string(username);
+                std::string relative_path = directory + std::string("/") + std::string(path);
                 if (relative_path.find(':') < relative_path.size())
                     relative_path.replace(relative_path.find(':'), 1, ".");
-                boost::filesystem::remove(relative_path.data());
+                boost::filesystem::remove_all(relative_path.data());
 
                 status_type = 3;
                 response_str = std::string(path) + std::string(" erased");

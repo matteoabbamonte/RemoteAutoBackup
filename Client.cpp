@@ -73,10 +73,10 @@ class Client {
         boost::filesystem::ofstream outFile;
         bool return_value = true;
         outFile.open("../../log.txt", std::ios::app);
+
         switch (status) {
 
-            case status_type::in_need:
-            {
+            case status_type::in_need : {
                 std::string separator = "||";
                 size_t pos = 0;
                 std::string path;
@@ -117,8 +117,7 @@ class Client {
                 break;
             }
 
-            case status_type::unauthorized:
-            {
+            case status_type::unauthorized : {
                 std::cout << "Unauthorized." << std::endl;
                 socket_.close();
                 running = return_value = false;
@@ -126,8 +125,7 @@ class Client {
                 break;
             }
 
-            case status_type::service_unavailable:
-            {
+            case status_type::service_unavailable : {
                 std::cout << "Service unavailable, shutting down." << std::endl;
                 socket_.close();
                 running = return_value = false;
@@ -135,8 +133,7 @@ class Client {
                 break;
             }
 
-            case status_type::wrong_action:
-            {
+            case status_type::wrong_action : {
                 std::cout << "Wrong action, rebooting." << std::endl;
                 socket_.close();
                 running = return_value = false;
@@ -144,8 +141,7 @@ class Client {
                 break;
             }
 
-            case status_type::authorized:
-            {
+            case status_type::authorized : {
                 std::cout << "Authorized." << std::endl;
                 boost::property_tree::ptree pt;
                 for (const auto& tuple : DirectoryWatcher::paths_) {
@@ -169,12 +165,12 @@ class Client {
                 break;
             }
 
-            default:
-            {
+            default : {
                 std::cout << "Default status." << std::endl;
 
             }
         }
+
         data.append("\n");
         outFile.write(data.data(), data.size());
         outFile.close();
@@ -254,8 +250,7 @@ bool stop() {
 int main(int argc, char* argv[]) {
     try {
 
-        if (argc != 4)
-        {
+        if (argc != 4) {
             std::cerr << "Usage: Client <host> <port> <rel_path_to_watch>\n";
             return 1;
         }
@@ -278,8 +273,7 @@ int main(int argc, char* argv[]) {
 
             std::thread t([&io_context](){ io_context.run(); });
 
-            // Start monitoring a folder for changes and (in case of changes)
-            // run a user provided lambda function
+            // Start monitoring a folder for changes and (in case of changes) run a user provided lambda function
             dw.start([&](std::string path, FileStatus status, bool isFile) {
                 // Process only regular files, all other file types are ignored
                 if(boost::filesystem::is_regular_file(boost::filesystem::path(path)) || boost::filesystem::is_directory(boost::filesystem::path(path)) || status == FileStatus::erased) {
@@ -320,16 +314,37 @@ int main(int argc, char* argv[]) {
 
                             break;
                         }
+
                         case FileStatus::modified:
                             if (isFile) {
                                 std::cout << "File modified: " << path_to_watch << '\n';
-                            } else std::cout << "Directory modified: " << path_to_watch << '\n';
+                            } else
+                                std::cout << "Directory modified: " << path_to_watch << '\n';
                             break;
-                        case FileStatus::erased:
-                            if (isFile) {
-                                std::cout << "File erased: " << path_to_watch << '\n';
-                            } else std::cout << "Directory erased: " << path_to_watch << '\n';
+
+                        case FileStatus::erased : {
+                            path = path.substr(path_to_watch.size() + 1);
+                            boost::property_tree::ptree pt;
+                            pt.add("path", path);
+
+                            std::stringstream file_stream;
+                            boost::property_tree::write_json(file_stream, pt, false);
+                            std::string file_string(file_stream.str());
+
+                            Message write_msg;
+                            write_msg.encode_header(4);
+                            write_msg.encode_data(file_string);
+                            write_msg.zip_message();
+                            cl.enqueue_msg(write_msg);
+
+                            if (isFile)
+                                std::cout << "File erased: " << path << '\n';
+                            else
+                                std::cout << "Directory erased: " << path << '\n';
+
                             break;
+                        }
+
                         default:
                             std::cout << "Error! Unknown file status.\n";
                     }
