@@ -75,6 +75,7 @@ class Client {
         bool return_value = true;
         outFile.open("../../log.txt", std::ios::app);
         switch (status) {
+
             case status_type::in_need:
             {
                 std::string separator = "||";
@@ -113,20 +114,37 @@ class Client {
                     enqueue_msg(write_msg);
                 }
 
-                std::string log_txt("Some paths needed\n");
-                outFile.write(log_txt.data(), log_txt.size());
+                data = "Some paths needed";
                 break;
             }
+
             case status_type::unauthorized:
             {
                 std::cout << "Unauthorized." << std::endl;
                 socket_.close();
                 running = return_value = false;
 
-                data.append("\n");
-                outFile.write(data.data(), data.size());
                 break;
             }
+
+            case status_type::service_unavailable:
+            {
+                std::cout << "Service unavailable, shutting down." << std::endl;
+                socket_.close();
+                running = return_value = false;
+
+                break;
+            }
+
+            case status_type::wrong_action:
+            {
+                std::cout << "Wrong action, rebooting." << std::endl;
+                socket_.close();
+                running = return_value = false;
+
+                break;
+            }
+
             case status_type::authorized:
             {
                 std::cout << "Authorized." << std::endl;
@@ -149,17 +167,17 @@ class Client {
                 write_msg.zip_message();
                 enqueue_msg(write_msg);
 
-                data.append("\n");
-                outFile.write(data.data(), data.size());
                 break;
             }
+
             default:
             {
                 std::cout << "Default status." << std::endl;
-                data.append("\n");
-                outFile.write(data.data(), data.size());
+
             }
         }
+        data.append("\n");
+        outFile.write(data.data(), data.size());
         outFile.close();
         return return_value;
     }
