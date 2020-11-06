@@ -14,8 +14,6 @@ using boost::asio::ip::tcp;
 class Client {
     boost::asio::io_context& io_context_;
     tcp::socket socket_;
-    std::mutex m;
-    std::condition_variable cv_write;
     boost::asio::streambuf buf;
     std::queue<Message> write_queue_c;
     bool & running;
@@ -91,7 +89,6 @@ class Client {
                     std::ifstream inFile;
                     relative_path = std::string(path_to_watch + "/") + relative_path;
                     inFile.open(relative_path, std::ios::in|std::ios::binary);
-                    //std::vector<char> buffer_vec;
                     std::vector<BYTE> buffer_vec;
                     char ch;
                     while (inFile.get(ch))                  // loop getting single characters
@@ -105,7 +102,6 @@ class Client {
 
                     //writing message
                     std::stringstream file_stream;
-                    //write_json(file_stream, pt, false);
                     boost::property_tree::write_json(file_stream, pt, false);
 
                     std::string file_string(file_stream.str());
@@ -169,30 +165,27 @@ class Client {
     }
 
     void do_write() {
-        std::unique_lock ul(m);
-        cv_write.wait(ul, [this](){return !write_queue_c.empty();});
         std::cout << "Writing message..." << std::endl;
-        //std::string str(*write_queue_c.front().get_msg_ptr());
-        boost::asio::write(socket_, boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()));
-        write_queue_c.pop();
-        /*boost::asio::write(socket_,
+        boost::asio::async_write(socket_,
                 boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
-                [this](boost::system::error_code ec, std::size_t /*length) {
+                [this](boost::system::error_code ec, std::size_t /*length*/) {
                             if (!ec) {
                                 write_queue_c.pop();
+                                if (!write_queue_c.empty()) {
+                                    do_write();
+                                }
                             } else {
                                 std::cout << "Error while writing: ";
                                 std::cout << ec.message() << std::endl;
                                 socket_.close();
                             }
-                });*/
+                });
     }
 
     void enqueue_msg(const Message &msg) {
-        std::lock_guard lg(m);
-        std::cout << "Pushing" << std::endl;
+        bool write_in_progress = !write_queue_c.empty();
         write_queue_c.push(msg);
-        cv_write.notify_all();
+        if (!write_in_progress) do_write();
     }
 
     void get_credentials() {
@@ -213,12 +206,6 @@ public:
     Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running, std::string path_to_watch) : io_context_(io_context), socket_(io_context), running(running), path_to_watch(path_to_watch) {
         do_connect(endpoints);
         create_log_file();
-        std::thread write_thread([this](){
-            while (true) {
-                do_write();
-            }
-        });
-        write_thread.detach();
     }
 
     static void send_actions(std::string path_to_watch, FileStatus status, bool isFile) {

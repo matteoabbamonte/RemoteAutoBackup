@@ -17,27 +17,21 @@ void Message::zip_message() {
     std::stringstream message_stream;
     boost::property_tree::json_parser::write_json(message_stream, pt);
     std::string message_string(message_stream.str());
-    //boost::property_tree::ptree pt1;
-    //read_json(message_stream, pt1);
     msg_ptr = std::make_shared<std::string>(message_string);
     msg_ptr->resize(message_string.size());
 }
 
 std::shared_ptr<std::string> Message::get_msg_ptr() {
     std::string temp(*msg_ptr);
-    //std::cout << temp << std::endl;
     return msg_ptr;
 }
 
 void Message::decode_message() {
-    //msg_ptr->shrink_to_fit();
     std::stringstream stream;
     stream << (*msg_ptr);
-    //stream.seekg(0, stream.beg);
     std::string temp(stream.str());
     std::cout << temp << std::endl;
     read_json(stream, pt);
-    //boost::property_tree::json_parser::read_json(stream, pt);
 }
 
 int Message::get_header() {

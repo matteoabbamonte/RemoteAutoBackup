@@ -322,9 +322,7 @@ void Server_Session::request_handler(Message msg) {
         }
 
     }
-    //read_msg.clear();
     // creating response message
-    //std::cout << "Sending " << response_str << std::endl;
     response_msg.encode_header(status_type);
     response_msg.encode_data(response_str);
     response_msg.zip_message();
