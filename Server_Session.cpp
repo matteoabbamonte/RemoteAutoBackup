@@ -103,20 +103,21 @@ void Server_Session::update_db_paths() {
 
 bool Server_Session::get_paths() {
     sqlite3* conn;
-    unsigned char *paths_ch;
+    unsigned char *paths_ch = nullptr;
     bool found = false;
     if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("SELECT paths FROM client WHERE username = '") + username + std::string("';");
         sqlite3_stmt *statement;
         if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr) == SQLITE_OK) {
-            while( sqlite3_step(statement) == SQLITE_ROW ) {
+            if ( sqlite3_step(statement) == SQLITE_ROW ) {
                 paths_ch = const_cast<unsigned char*>(sqlite3_column_text(statement, 0));
             }
-            if (paths_ch != NULL) {
-                std::string paths_str(reinterpret_cast<char*>(paths_ch));   //cast in order to remove unsigned
+            if (paths_ch != nullptr) {
+                //std::string paths_str(reinterpret_cast<char*>(paths_ch));   //cast in order to remove unsigned
+                std::stringstream paths_stream(reinterpret_cast<char*>(paths_ch));
                 found = true;
                 boost::property_tree::ptree pt;
-                boost::property_tree::read_json(paths_str, pt);
+                boost::property_tree::read_json(paths_stream, pt);
                 for (auto pair : pt) {
                     std::stringstream hash_stream(pair.second.data());
                     size_t hash;
@@ -137,7 +138,7 @@ bool Server_Session::get_paths() {
     return found;
 }
 
-std::vector<std::string> Server_Session::compare_paths(ptree client_pt) {
+std::vector<std::string> Server_Session::compare_paths(ptree &client_pt) {
     std::vector<std::string> response_paths;
     for (auto &entry : client_pt) {
         auto it = paths.find(entry.first);
@@ -146,10 +147,10 @@ std::vector<std::string> Server_Session::compare_paths(ptree client_pt) {
             size_t entry_hash;
             hash_stream >> entry_hash;
             if (it->second != entry_hash) {
-                response_paths.emplace_back(it->first);
+                response_paths.emplace_back(entry.first);
             }
         } else {
-            response_paths.emplace_back(it->first);
+            response_paths.emplace_back(entry.first);
         }
     }
     return response_paths;
@@ -335,6 +336,5 @@ void Server_Session::request_handler(Message msg) {
 }
 
 Server_Session::~Server_Session() {
-    //std::cout << "Distruttore server session" << std::endl;
-    //if (!paths.empty()) update_db_paths();
+    if (!paths.empty()) update_db_paths();
 }
