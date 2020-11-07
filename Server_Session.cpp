@@ -7,8 +7,13 @@ void Server_Session::update_paths(const std::string& path, size_t hash) {
     paths[path] = hash;
 }
 
-void Server_Session::remove_path(const std::string& path) {
+void Server_Session::do_remove(const std::string& path) {
     paths.erase(path);
+    std::string directory = std::string("../../server/") + std::string(username);
+    std::string relative_path = directory + std::string("/") + std::string(path);
+    if (relative_path.find(':') < relative_path.size())
+        relative_path.replace(relative_path.find(':'), 1, ".");
+    boost::filesystem::remove_all(relative_path.data());
 }
 
 void Server_Session::start() {
@@ -138,8 +143,9 @@ bool Server_Session::get_paths() {
     return found;
 }
 
-std::vector<std::string> Server_Session::compare_paths(ptree &client_pt) {
-    std::vector<std::string> response_paths;
+Diff_vect Server_Session::compare_paths(ptree &client_pt) {
+    //Scanning received map in search for new elements
+    std::vector<std::string> toAdd;
     for (auto &entry : client_pt) {
         auto it = paths.find(entry.first);
         if (it != paths.end()) {
@@ -147,13 +153,22 @@ std::vector<std::string> Server_Session::compare_paths(ptree &client_pt) {
             size_t entry_hash;
             hash_stream >> entry_hash;
             if (it->second != entry_hash) {
-                response_paths.emplace_back(entry.first);
+                toAdd.emplace_back(entry.first);
             }
         } else {
-            response_paths.emplace_back(entry.first);
+            toAdd.emplace_back(entry.first);
         }
     }
-    return response_paths;
+    //Scanning local map in search for deprecated elements
+    std::vector<std::string> toRem;
+    for (auto &entry : paths) {
+        auto it = client_pt.find(entry.first);
+        if (it == client_pt.not_found()) {
+            toRem.emplace_back(entry.first);
+        }
+    }
+
+    return {toAdd, toRem};
 }
 
 void Server_Session::enqueue_msg(const Message &msg, bool close) {
@@ -210,13 +225,20 @@ void Server_Session::request_handler(Message msg) {
                     // vede se il database risponde
                     if (server_availability) {
                         // deve confrontare le mappe e rispondere con in_need o no_need
-                        std::vector<std::string> missing_paths = compare_paths(pt);
-                        if (missing_paths.empty()) {
+                        Diff_vect diffs = compare_paths(pt);
+                        if (diffs.toAdd.empty()) {
                             status_type = 4;
                             response_str = "No need";
                         } else {
                             status_type = 5;
-                            for (const auto &path : missing_paths) response_str += path + "||";
+                            for (const auto &path : diffs.toAdd) {
+                                response_str += path + "||";
+                            }
+                        }
+                        if (!diffs.toRem.empty()) {
+                            for (const auto &path : diffs.toRem) {
+                                do_remove(path);
+                            }
                         }
                     } else {
                         status_type = 7;
@@ -309,12 +331,7 @@ void Server_Session::request_handler(Message msg) {
                 data_stream << data;
                 boost::property_tree::json_parser::read_json(data_stream, pt);
                 auto path = pt.get<std::string>("path");
-                remove_path(path);
-                std::string directory = std::string("../../server/") + std::string(username);
-                std::string relative_path = directory + std::string("/") + std::string(path);
-                if (relative_path.find(':') < relative_path.size())
-                    relative_path.replace(relative_path.find(':'), 1, ".");
-                boost::filesystem::remove_all(relative_path.data());
+                do_remove(path);
 
                 status_type = 3;
                 response_str = std::string(path) + std::string(" erased");

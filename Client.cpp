@@ -283,6 +283,8 @@ int main(int argc, char* argv[]) {
                     int action_type;
                     std::string relative_path = path;
                     path = path.substr(path_to_watch.size() + 1);
+                    if (path.find('.') < path.size())
+                        path.replace(path.find('.'), 1, ":");
 
                     switch(status) {
 
@@ -292,9 +294,6 @@ int main(int argc, char* argv[]) {
                                 std::cout << "File created: " << path << '\n';
                             else
                                 std::cout << "Directory created: " << path << '\n';
-
-                            if (relative_path.find(':') < relative_path.size())
-                                relative_path.replace(relative_path.find(':'), 1, ".");
 
                             std::ifstream inFile;
                             inFile.open(relative_path, std::ios::in|std::ios::binary);

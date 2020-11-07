@@ -12,6 +12,11 @@
 
 #define delimiter "\n}\n"
 
+struct Diff_vect {
+    std::vector<std::string> toAdd;
+    std::vector<std::string> toRem;
+};
+
 using boost::asio::ip::tcp;
 using boost::property_tree::ptree;
 
@@ -24,6 +29,8 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
 
     void request_handler(Message msg);
 
+    void do_remove(const std::string& path);
+
 public:
 
     bool server_availability;
@@ -33,8 +40,6 @@ public:
     void start();
 
     void update_paths(const std::string& path, size_t hash);
-
-    void remove_path(const std::string& path);
 
     void do_read_body();    //reads the message and decodes actions and data
 
@@ -50,6 +55,6 @@ public:
 
     bool get_paths();
 
-    std::vector<std::string> compare_paths(ptree &client_pt);
+    Diff_vect compare_paths(ptree &client_pt);
 
 };
