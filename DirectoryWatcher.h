@@ -38,5 +38,4 @@ public:
     // Monitor "path_to_watch" for changes and in case of a change execute the user supplied "action" function
     void start(std::function<void (std::string, FileStatus, bool)> action);
 
-    //void send_actions(std::string path, FileStatus status, bool isFile);
 };
