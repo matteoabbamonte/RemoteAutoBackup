@@ -346,9 +346,7 @@ void Server_Session::request_handler(Message msg) {
 
     }
     // creating response message
-    response_msg.encode_header(status_type);
-    response_msg.encode_data(response_str);
-    response_msg.zip_message();
+    response_msg.encode_message(status_type, response_str);
     enqueue_msg(response_msg, close);
 }
 

@@ -5,14 +5,6 @@ Message::Message() {
     msg_ptr = std::make_shared<std::string>();
 }
 
-void Message::encode_header(int header) {
-    pt.add("header", header);
-}
-
-void Message::encode_data(std::string& data) {
-    pt.add("data", data);
-}
-
 void Message::zip_message() {
     std::stringstream message_stream;
     boost::property_tree::json_parser::write_json(message_stream, pt);
@@ -52,15 +44,17 @@ std::tuple<std::string, std::string> Message::get_credentials() {
 
 void Message::put_credentials(const std::string& username, const std::string& password) {
     std::string user_pass = std::string(username) + std::string("||") + std::string(password);
-    encode_data(user_pass);
+    encode_message(0, user_pass);
 }
 
 void Message::clear() {
     msg_ptr = std::make_shared<std::string>();
 }
 
-/*Message::~Message() {
-    //delete [] size;
-    //delete [] msg_ptr;
-}*/
+void Message::encode_message(int header, std::string& data) {
+    pt.add("header", header);
+    pt.add("data", data);
+    zip_message();
+}
+
 

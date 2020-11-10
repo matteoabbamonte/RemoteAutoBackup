@@ -12,10 +12,6 @@ class Message {
 public:
     Message();
 
-    void encode_header(int header);
-
-    void encode_data(std::string& data);
-
     void zip_message();
 
     void clear();
@@ -32,6 +28,5 @@ public:
 
     void put_credentials(const std::string& username, const std::string& password);
 
-    // ~Message();
-
+    void encode_message(int header, std::string& data);
 };

@@ -132,9 +132,7 @@ class Client {
                     std::string file_string(file_stream.str());
 
                     Message write_msg;
-                    write_msg.encode_header(action_type);
-                    write_msg.encode_data(file_string);
-                    write_msg.zip_message();
+                    write_msg.encode_message(action_type, file_string);
                     enqueue_msg(write_msg);
                 }
             });
@@ -214,9 +212,7 @@ class Client {
                     std::string file_string(file_stream.str());
 
                     Message write_msg;
-                    write_msg.encode_header(2);
-                    write_msg.encode_data(file_string);
-                    write_msg.zip_message();
+                    write_msg.encode_message(2, file_string);
                     enqueue_msg(write_msg);
                 }
 
@@ -264,9 +260,7 @@ class Client {
                 map_string = map_stream.str();
 
                 Message write_msg;
-                write_msg.encode_data(map_string);
-                write_msg.encode_header(1);
-                write_msg.zip_message();
+                write_msg.encode_message(1, map_string);
                 enqueue_msg(write_msg);
 
                 break;
@@ -311,8 +305,6 @@ class Client {
         std::cin >> password;
         Message write_msg;
         write_msg.put_credentials(username, password);
-        write_msg.encode_header(0);
-        write_msg.zip_message();
         enqueue_msg(write_msg);
     }
 
