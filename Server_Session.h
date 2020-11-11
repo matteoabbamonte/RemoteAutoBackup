@@ -7,6 +7,7 @@
 #include <sqlite3.h>
 #include "Message.h"
 #include "Headers.h"
+#include "Database_Connection.h"
 #include <boost/filesystem.hpp>
 #include <queue>
 
@@ -26,7 +27,7 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     std::map<std::string, std::size_t> paths;
     std::queue<Message> write_queue_s;
     boost::asio::streambuf buf;
-    bool server_availability;
+    Database_Connection db{};
 
     void request_handler(Message msg);
 
@@ -38,13 +39,11 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
 
     void do_write();        //writes the available messages from the queue to the socket
 
-    bool check_database(const std::string& username, const std::string& password);
-
     void enqueue_msg(const Message& msg, bool close);
 
-    void update_db_paths();
+    //void update_db_paths();
 
-    bool get_paths();
+    //bool get_paths();
 
     Diff_vect compare_paths(ptree &client_pt);
 

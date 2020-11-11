@@ -1,7 +1,7 @@
 #include "Server_Session.h"
 #include "Base64/base64.h"
 
-Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)), server_availability(true) {}
+Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
 
 void Server_Session::update_paths(const std::string& path, size_t hash) {
     paths[path] = hash;
@@ -59,87 +59,6 @@ void Server_Session::do_write() {
                     std::cout << ec.message() << std::endl;
                 }
     });
-}
-
-bool Server_Session::check_database(const std::string& temp_username, const std::string& password) {
-    std::cout << "Checking Database..." << std::endl;
-    sqlite3* conn;
-    int count = 0;
-    if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
-        std::string sqlStatement = std::string("SELECT COUNT(*) FROM Client WHERE username = '") + temp_username + std::string("' AND password = '") + password + std::string("';");
-        sqlite3_stmt *statement;
-        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);
-        if (res == SQLITE_OK) {
-            while( sqlite3_step(statement) == SQLITE_ROW ) {
-                count = sqlite3_column_int(statement, 0);
-            }
-        } else {
-            std::cout << "Database Error: " << res << ", " << sqlite3_errmsg(conn) << std::endl;
-        }
-        sqlite3_finalize(statement);
-        sqlite3_close(conn);
-    }
-    return count;
-}
-
-void Server_Session::update_db_paths() {
-    std::cout << "Updating Database..." << std::endl;
-    boost::property_tree::ptree pt;
-    for (auto & path : paths) {
-        pt.add(path.first, path.second);
-    }
-    std::stringstream map_to_stream;
-    boost::property_tree::write_json(map_to_stream, pt);
-    sqlite3* conn;
-    if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
-        std::string sqlStatement = std::string("UPDATE client SET paths = '") + map_to_stream.str() + std::string("' WHERE username = '") + username + std::string("';");
-        sqlite3_stmt *statement;
-        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);
-        if (res == SQLITE_OK) {
-            sqlite3_step(statement);
-        } else {
-            std::cout << "Database Error: " << res << ", " << sqlite3_errmsg(conn) << std::endl;
-        }
-        sqlite3_finalize(statement);
-        sqlite3_close(conn);
-    }
-}
-
-
-bool Server_Session::get_paths() {
-    sqlite3* conn;
-    unsigned char *paths_ch = nullptr;
-    bool found = false;
-    if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
-        std::string sqlStatement = std::string("SELECT paths FROM client WHERE username = '") + username + std::string("';");
-        sqlite3_stmt *statement;
-        if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr) == SQLITE_OK) {
-            if ( sqlite3_step(statement) == SQLITE_ROW ) {
-                paths_ch = const_cast<unsigned char*>(sqlite3_column_text(statement, 0));
-            }
-            if (paths_ch != nullptr) {
-                std::stringstream paths_stream(reinterpret_cast<char*>(paths_ch));
-                found = true;
-                boost::property_tree::ptree pt;
-                boost::property_tree::read_json(paths_stream, pt);
-                for (auto pair : pt) {
-                    std::stringstream hash_stream(pair.second.data());
-                    size_t hash;
-                    hash_stream >> hash;
-                    paths[pair.first] = hash;
-                }
-            }
-        } else {
-            server_availability = false;
-            std::cout << "Database Connection Error" << std::endl;
-        }
-        sqlite3_finalize(statement);
-        sqlite3_close(conn);
-        return found;
-    } else {
-        server_availability = false;
-    }
-    return found;
 }
 
 Diff_vect Server_Session::compare_paths(ptree &client_pt) {
@@ -200,7 +119,7 @@ void Server_Session::request_handler(Message msg) {
             case (action_type::login) : {
 
                 auto credentials = msg.get_credentials();
-                bool found = Server_Session::check_database(std::get<0>(credentials), std::get<1>(credentials));
+                bool found = db.check_database(std::get<0>(credentials), std::get<1>(credentials));
                 if (found) {
                     username = std::get<0>(credentials);
                     status_type = 0;
@@ -220,9 +139,11 @@ void Server_Session::request_handler(Message msg) {
                 std::stringstream data_stream;
                 data_stream << data;
                 boost::property_tree::json_parser::read_json(data_stream, pt);
-                if (get_paths()) {
+                auto found_avail = db.get_paths(paths, username);
+
+                if (std::get<1>(found_avail)) {
                     // vede se il database risponde
-                    if (server_availability) {
+                    if (std::get<0>(found_avail)) {
                         // deve confrontare le mappe e rispondere con in_need o no_need
                         Diff_vect diffs = compare_paths(pt);
                         if (diffs.toAdd.empty()) {
@@ -240,13 +161,13 @@ void Server_Session::request_handler(Message msg) {
                             }
                         }
                     } else {
-                        status_type = 7;
-                        response_str = "Service unavailable";
+                        // deve rispondere in_need con tutta la mappa ricevuta come dati
+                        status_type = 5;
+                        for (const auto &path : pt) response_str += path.first + "||";
                     }
                 } else {
-                    // deve rispondere in_need con tutta la mappa ricevuta come dati
-                    status_type = 5;
-                    for (const auto &path : pt) response_str += path.first + "||";
+                    status_type = 7;
+                    response_str = "Service unavailable";
                 }
 
                 break;
@@ -350,5 +271,5 @@ void Server_Session::request_handler(Message msg) {
 }
 
 Server_Session::~Server_Session() {
-    if (!paths.empty()) update_db_paths();
+    if (!paths.empty()) db.update_db_paths(paths, username);
 }
