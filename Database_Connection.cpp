@@ -1,8 +1,9 @@
 #include "Database_Connection.h"
 
-bool Database_Connection::check_database(const std::string& temp_username, const std::string& password) {
+std::tuple<bool, bool> Database_Connection::check_database(const std::string& temp_username, const std::string& password) {
     std::cout << "Checking Database..." << std::endl;
     int count = 0;
+    bool db_availability = true;
     if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("SELECT COUNT(*) FROM Client WHERE username = '") + temp_username + std::string("' AND password = '") + password + std::string("';");
         sqlite3_stmt *statement;
@@ -13,11 +14,16 @@ bool Database_Connection::check_database(const std::string& temp_username, const
             }
         } else {
             std::cout << "Database Error: " << res << ", " << sqlite3_errmsg(conn) << std::endl;
+            db_availability = false;
         }
         sqlite3_finalize(statement);
         sqlite3_close(conn);
+    } else {
+        db_availability = false;
     }
-    return count;
+    std::tuple<bool, bool> count_avail = {count, db_availability};
+    return count_avail;
+    //return count;
 }
 
 void Database_Connection::update_db_paths(std::map<std::string, std::size_t> &paths, std::string username) {

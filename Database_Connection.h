@@ -12,7 +12,7 @@ class Database_Connection {
 
 public:
 
-    bool check_database(const std::string& temp_username, const std::string& password);
+    std::tuple<bool, bool> check_database(const std::string& temp_username, const std::string& password);
 
     void update_db_paths(std::map<std::string, std::size_t> &paths, std::string username);
 

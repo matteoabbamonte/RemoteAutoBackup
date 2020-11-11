@@ -39,11 +39,7 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
 
     void do_write();        //writes the available messages from the queue to the socket
 
-    void enqueue_msg(const Message& msg, bool close);
-
-    //void update_db_paths();
-
-    //bool get_paths();
+    void enqueue_msg(const Message& msg, bool close);;
 
     Diff_vect compare_paths(ptree &client_pt);
 

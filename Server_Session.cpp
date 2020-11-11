@@ -119,6 +119,23 @@ void Server_Session::request_handler(Message msg) {
             case (action_type::login) : {
 
                 auto credentials = msg.get_credentials();
+                auto count_avail = db.check_database(std::get<0>(credentials), std::get<1>(credentials));
+                if (std::get<1>(count_avail)) {
+                    if (std::get<0>(count_avail)) {
+                        username = std::get<0>(credentials);
+                        status_type = 0;
+                        response_str = std::string("Access granted");
+                    } else {
+                        status_type = 6;
+                        response_str = std::string("Access denied, try again");
+                        close = true;
+                    }
+                } else {
+                    status_type = 7;
+                    response_str = std::string("Service unavailable");
+                    close = true;
+                }
+                /*
                 bool found = db.check_database(std::get<0>(credentials), std::get<1>(credentials));
                 if (found) {
                     username = std::get<0>(credentials);
@@ -129,6 +146,7 @@ void Server_Session::request_handler(Message msg) {
                     response_str = std::string("Access denied, try again");
                     close = true;
                 }
+                */
 
                 break;
             }
