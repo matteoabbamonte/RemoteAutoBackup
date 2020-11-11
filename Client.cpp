@@ -28,7 +28,6 @@ class Client {
                     if (!ec) {
                         get_credentials();
                         do_read_body();
-                        do_start_watcher();
                     } else {
                         std::cout << "Error while connecting: ";
                         std::cerr << ec.message() << std::endl;
@@ -224,6 +223,7 @@ class Client {
             }
             case status_type::authorized : {
                 std::cout << "Authorized." << std::endl;
+                do_start_watcher();
                 boost::property_tree::ptree pt;
                 for (const auto& tuple : DirectoryWatcher::paths_) {
                     std::string path(tuple.first);
@@ -356,7 +356,4 @@ int main(int argc, char* argv[]) {
 
     }
 }
-
-
-
 
