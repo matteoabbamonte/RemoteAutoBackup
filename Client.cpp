@@ -10,17 +10,24 @@
 #define delimiter "\n}\n"
 
 using boost::asio::ip::tcp;
+struct Credentials {
+    std::string username;
+    std::string password;
+};
 
 class Client {
     boost::asio::io_context& io_context_;
     tcp::socket socket_;
+    tcp::resolver::results_type endpoints;
     boost::asio::streambuf buf;
     std::shared_ptr<DirectoryWatcher> dw_ptr;
     std::queue<Message> write_queue_c;
+    Credentials cred;
     std::string path_to_watch;
+    std::chrono::duration<int, std::milli> delay;
     bool & running;
 
-    void do_connect(const tcp::resolver::results_type& endpoints) {
+    void do_connect() {
         std::cout << "Trying to connect..." << std::endl;
         boost::asio::async_connect(socket_, endpoints,
                 [this](boost::system::error_code ec, const tcp::endpoint&) {
@@ -139,6 +146,26 @@ class Client {
         directoryWatcher.detach();
     }
 
+    void handle_failures() {
+        boost::asio::async_connect(socket_, endpoints,
+                                   [this](boost::system::error_code ec, const tcp::endpoint&){
+                                       if (!ec) {
+                                           do_read_body();
+                                       } else {
+                                           auto wait = std::chrono::duration_cast<std::chrono::seconds>(delay);
+                                           std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
+                                           std::this_thread::sleep_for(delay);
+                                           if (wait.count() > 20) {
+                                               std::cout << "Server unavailable, shutting down." << std::endl;
+                                               close();
+                                           } else {
+                                               handle_failures();
+                                               delay *= 2;
+                                           }
+                                       }
+                                   });
+    }
+
     void do_read_body() {
         std::cout << "Reading message body..." << std::endl;
         boost::asio::async_read_until(socket_,buf, delimiter,
@@ -154,11 +181,26 @@ class Client {
                             do_read_body();
                         }
                     } else {
-                        std::cout << "Error while reading message body: ";
-                        std::cout << ec.message() << std::endl;
-                        close();
+                        handle_failures();
                     }
         });
+    }
+
+    void handle_synch() {
+        boost::property_tree::ptree pt;
+        for (const auto& tuple : DirectoryWatcher::paths_) {
+            std::string path(tuple.first);
+            path = path.substr(path_to_watch.size()+1);
+            if (path.find('.') < path.size())
+                path.replace(path.find('.'), 1, ":");
+            pt.add(path, tuple.second.hash);
+        }
+        std::stringstream map_stream;
+        boost::property_tree::write_json(map_stream, pt);
+        std::string map_string = map_stream.str();
+        Message write_msg;
+        write_msg.encode_message(1, map_string);
+        enqueue_msg(write_msg);
     }
 
     bool status_handler(Message msg) {
@@ -200,45 +242,48 @@ class Client {
                     write_msg.encode_message(2, file_string);
                     enqueue_msg(write_msg);
                 }
-                data = "Some paths needed";
                 break;
             }
             case status_type::unauthorized : {
                 std::cout << "Unauthorized." << std::endl;
                 close();
                 return_value = false;
+
                 break;
             }
             case status_type::service_unavailable : {
-                std::cout << "Service unavailable, shutting down." << std::endl;
-                close();
-                return_value = false;
+                auto wait = std::chrono::duration_cast<std::chrono::seconds>(delay);
+                std::cout << "Database unavailable, retrying in " << wait.count() << " sec" << std::endl;
+                std::this_thread::sleep_for(delay);
+                Message last_message;
+                if (data == "login") {
+                    last_message.put_credentials(cred.username, cred.password);
+                    enqueue_msg(last_message);
+                } else {
+                    handle_synch();
+                }
+                if (wait.count() > 20) {
+                    std::cout << "Database unavailable, shutting down." << std::endl;
+                    return_value = false;
+                    close();
+                } else {
+                    delay *= 2;
+                }
+
                 break;
             }
             case status_type::wrong_action : {
                 std::cout << "Wrong action, rebooting." << std::endl;
                 close();
                 return_value = false;
+
                 break;
             }
             case status_type::authorized : {
                 std::cout << "Authorized." << std::endl;
                 do_start_watcher();
-                boost::property_tree::ptree pt;
-                for (const auto& tuple : DirectoryWatcher::paths_) {
-                    std::string path(tuple.first);
-                    path = path.substr(path_to_watch.size()+1);
-                    if (path.find('.') < path.size())
-                        path.replace(path.find('.'), 1, ":");
-                    pt.add(path, tuple.second.hash);
-                }
-                std::stringstream map_stream;
-                std::string map_string;
-                boost::property_tree::write_json(map_stream, pt);
-                map_string = map_stream.str();
-                Message write_msg;
-                write_msg.encode_message(1, map_string);
-                enqueue_msg(write_msg);
+                handle_synch();
+
                 break;
             }
             default : {
@@ -250,6 +295,7 @@ class Client {
 
     void do_write() {
         std::cout << "Writing message..." << std::endl;
+        std::string str(*write_queue_c.front().get_msg_ptr());
         boost::asio::async_write(socket_,
                 boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
                 [this](boost::system::error_code ec, std::size_t /*length*/) {
@@ -267,15 +313,13 @@ class Client {
     }
 
     void get_credentials() {
-        std::string username;
         std::cout << "Insert username: ";
-        std::cin >> username;
-        std::string password;
+        std::cin >> cred.username;
         std::cout << "Insert password: ";
-        std::cin >> password;
-        Message write_msg;
-        write_msg.put_credentials(username, password);
-        enqueue_msg(write_msg);
+        std::cin >> cred.password;
+        Message login_message;
+        login_message.put_credentials(cred.username, cred.password);
+        enqueue_msg(login_message);
     }
 
     void close() {
@@ -296,10 +340,12 @@ public:
     Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running, std::string path_to_watch, DirectoryWatcher &dw) :
             io_context_(io_context),
             socket_(io_context),
+            endpoints(endpoints),
             running(running),
             path_to_watch(path_to_watch),
-            dw_ptr(std::make_shared<DirectoryWatcher>(dw)) {
-        do_connect(endpoints);
+            dw_ptr(std::make_shared<DirectoryWatcher>(dw)),
+            delay(1000) {
+        do_connect();
     }
 
     ~Client() {

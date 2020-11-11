@@ -120,7 +120,7 @@ void Server_Session::request_handler(Message msg) {
                     }
                 } else {
                     status_type = 7;
-                    response_str = std::string("Service unavailable");
+                    response_str = std::string("login");
                 }
                 break;
             }
@@ -156,7 +156,7 @@ void Server_Session::request_handler(Message msg) {
                     }
                 } else {
                     status_type = 7;
-                    response_str = "Service unavailable";
+                    response_str = std::string("synchronize");
                 }
                 break;
             }
