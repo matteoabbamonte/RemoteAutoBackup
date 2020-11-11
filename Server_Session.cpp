@@ -118,7 +118,6 @@ bool Server_Session::get_paths() {
                 paths_ch = const_cast<unsigned char*>(sqlite3_column_text(statement, 0));
             }
             if (paths_ch != nullptr) {
-                //std::string paths_str(reinterpret_cast<char*>(paths_ch));   //cast in order to remove unsigned
                 std::stringstream paths_stream(reinterpret_cast<char*>(paths_ch));
                 found = true;
                 boost::property_tree::ptree pt;

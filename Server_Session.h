@@ -26,26 +26,17 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     std::map<std::string, std::size_t> paths;
     std::queue<Message> write_queue_s;
     boost::asio::streambuf buf;
+    bool server_availability;
 
     void request_handler(Message msg);
 
     void do_remove(const std::string& path);
-
-public:
-
-    bool server_availability;
-
-    Server_Session(tcp::socket &socket);
-
-    void start();
 
     void update_paths(const std::string& path, size_t hash);
 
     void do_read_body();    //reads the message and decodes actions and data
 
     void do_write();        //writes the available messages from the queue to the socket
-
-    ~Server_Session();
 
     bool check_database(const std::string& username, const std::string& password);
 
@@ -56,5 +47,13 @@ public:
     bool get_paths();
 
     Diff_vect compare_paths(ptree &client_pt);
+
+public:
+
+    Server_Session(tcp::socket &socket);
+
+    void start();
+
+    ~Server_Session();
 
 };

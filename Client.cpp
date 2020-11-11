@@ -17,6 +17,7 @@ class Client {
     boost::asio::streambuf buf;
     std::shared_ptr<DirectoryWatcher> dw_ptr;
     std::queue<Message> write_queue_c;
+    std::string path_to_watch;
     bool & running;
 
     void do_connect(const tcp::resolver::results_type& endpoints) {
@@ -31,8 +32,7 @@ class Client {
                     } else {
                         std::cout << "Error while connecting: ";
                         std::cerr << ec.message() << std::endl;
-                        socket_.close();
-                        running = false;
+                        close();
                     }
                 });
     }
@@ -140,10 +140,6 @@ class Client {
         directoryWatcher.detach();
     }
 
-    void create_log_file() {
-        boost::filesystem::ofstream("../../log.txt");
-    }
-
     void do_read_body() {
         std::cout << "Reading message body..." << std::endl;
         boost::asio::async_read_until(socket_,
@@ -164,8 +160,7 @@ class Client {
                                     else {
                                         std::cout << "Error while reading message body: ";
                                         std::cout << ec.message() << std::endl;
-                                        socket_.close();
-                                        running = false;
+                                        close();
                                     }
                                 });
     }
@@ -175,9 +170,7 @@ class Client {
         auto status = static_cast<status_type>(msg.get_header()); //change header to status
         std::string data = msg.get_data();
         msg.clear();
-        boost::filesystem::ofstream outFile;
         bool return_value = true;
-        outFile.open("../../log.txt", std::ios::app);
 
         switch (status) {
 
@@ -222,24 +215,24 @@ class Client {
 
             case status_type::unauthorized : {
                 std::cout << "Unauthorized." << std::endl;
-                socket_.close();
-                running = return_value = false;
+                close();
+                return_value = false;
 
                 break;
             }
 
             case status_type::service_unavailable : {
                 std::cout << "Service unavailable, shutting down." << std::endl;
-                socket_.close();
-                running = return_value = false;
+                close();
+                return_value = false;
 
                 break;
             }
 
             case status_type::wrong_action : {
                 std::cout << "Wrong action, rebooting." << std::endl;
-                socket_.close();
-                running = return_value = false;
+                close();
+                return_value = false;
 
                 break;
             }
@@ -272,9 +265,6 @@ class Client {
             }
         }
 
-        data.append("\n");
-        outFile.write(data.data(), data.size());
-        outFile.close();
         return return_value;
     }
 
@@ -291,7 +281,7 @@ class Client {
                             } else {
                                 std::cout << "Error while writing: ";
                                 std::cout << ec.message() << std::endl;
-                                socket_.close();
+                                close();
                             }
                 });
     }
@@ -308,19 +298,6 @@ class Client {
         enqueue_msg(write_msg);
     }
 
-public:
-    std::string path_to_watch;
-
-    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running, std::string path_to_watch, DirectoryWatcher &dw) :
-            io_context_(io_context),
-            socket_(io_context),
-            running(running),
-            path_to_watch(path_to_watch),
-            dw_ptr(std::shared_ptr<DirectoryWatcher>(&dw)) {
-        do_connect(endpoints);
-        create_log_file();
-    }
-
     void close() {
         boost::asio::post(io_context_, [this]() {
             socket_.close();
@@ -332,6 +309,17 @@ public:
         bool write_in_progress = !write_queue_c.empty();
         write_queue_c.push(msg);
         if (!write_in_progress) do_write();
+    }
+
+public:
+
+    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running, std::string path_to_watch, DirectoryWatcher &dw) :
+            io_context_(io_context),
+            socket_(io_context),
+            running(running),
+            path_to_watch(path_to_watch),
+            dw_ptr(std::make_shared<DirectoryWatcher>(dw)) {
+        do_connect(endpoints);
     }
 
     ~Client() {

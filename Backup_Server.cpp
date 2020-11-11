@@ -8,7 +8,6 @@ using boost::asio::ip::tcp;
 
 class Backup_Server {
     tcp::acceptor acceptor;
-    bool active;
 
     void do_accept() {
         std::cout << "Inside do_accept" << std::endl;
@@ -26,6 +25,7 @@ class Backup_Server {
     }
 
 public:
+
     Backup_Server(boost::asio::io_context &io_context, const tcp::endpoint &endpoint) : acceptor(io_context, endpoint) {
         do_accept();
     };
