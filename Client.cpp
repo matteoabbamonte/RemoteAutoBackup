@@ -142,27 +142,24 @@ class Client {
 
     void do_read_body() {
         std::cout << "Reading message body..." << std::endl;
-        boost::asio::async_read_until(socket_,
-                                      buf,
-                                      delimiter,
-                                [this](boost::system::error_code ec, std::size_t length) {
-                                    if (!ec) {
-                                        std::string str(boost::asio::buffers_begin(buf.data()),
-                                                        boost::asio::buffers_begin(buf.data()) + buf.size());
-                                        buf.consume(length);
-                                        Message msg;
-                                        *msg.get_msg_ptr() = str;
-                                        msg.get_msg_ptr()->resize(length);
-                                        if (status_handler(msg)) {
-                                            do_read_body();
-                                        }
-                                    }
-                                    else {
-                                        std::cout << "Error while reading message body: ";
-                                        std::cout << ec.message() << std::endl;
-                                        close();
-                                    }
-                                });
+        boost::asio::async_read_until(socket_,buf, delimiter,
+                [this](boost::system::error_code ec, std::size_t length) {
+                    if (!ec) {
+                        std::string str(boost::asio::buffers_begin(buf.data()),
+                                boost::asio::buffers_begin(buf.data()) + buf.size());
+                        buf.consume(length);
+                        Message msg;
+                        *msg.get_msg_ptr() = str;
+                        msg.get_msg_ptr()->resize(length);
+                        if (status_handler(msg)) {
+                            do_read_body();
+                        }
+                    } else {
+                        std::cout << "Error while reading message body: ";
+                        std::cout << ec.message() << std::endl;
+                        close();
+                    }
+        });
     }
 
     bool status_handler(Message msg) {
@@ -171,9 +168,7 @@ class Client {
         std::string data = msg.get_data();
         msg.clear();
         bool return_value = true;
-
         switch (status) {
-
             case status_type::in_need : {
                 std::string separator = "||";
                 size_t pos = 0;
@@ -201,42 +196,32 @@ class Client {
                     //writing message
                     std::stringstream file_stream;
                     boost::property_tree::write_json(file_stream, pt, false);
-
                     std::string file_string(file_stream.str());
-
                     Message write_msg;
                     write_msg.encode_message(2, file_string);
                     enqueue_msg(write_msg);
                 }
-
                 data = "Some paths needed";
                 break;
             }
-
             case status_type::unauthorized : {
                 std::cout << "Unauthorized." << std::endl;
                 close();
                 return_value = false;
-
                 break;
             }
-
             case status_type::service_unavailable : {
                 std::cout << "Service unavailable, shutting down." << std::endl;
                 close();
                 return_value = false;
-
                 break;
             }
-
             case status_type::wrong_action : {
                 std::cout << "Wrong action, rebooting." << std::endl;
                 close();
                 return_value = false;
-
                 break;
             }
-
             case status_type::authorized : {
                 std::cout << "Authorized." << std::endl;
                 boost::property_tree::ptree pt;
@@ -251,20 +236,15 @@ class Client {
                 std::string map_string;
                 boost::property_tree::write_json(map_stream, pt);
                 map_string = map_stream.str();
-
                 Message write_msg;
                 write_msg.encode_message(1, map_string);
                 enqueue_msg(write_msg);
-
                 break;
             }
-
             default : {
                 std::cout << "Default status." << std::endl;
-
             }
         }
-
         return return_value;
     }
 

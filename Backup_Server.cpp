@@ -1,6 +1,5 @@
 #include <iostream>
 #include <boost/asio.hpp>
-#include <boost/thread.hpp>
 #include <boost/filesystem.hpp>
 #include "Server_Session.h"
 

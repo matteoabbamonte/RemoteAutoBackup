@@ -3,13 +3,12 @@
 #include <iostream>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
-#include <deque>
 #include <sqlite3.h>
+#include <boost/filesystem.hpp>
+#include <queue>
 #include "Message.h"
 #include "Headers.h"
 #include "Database_Connection.h"
-#include <boost/filesystem.hpp>
-#include <queue>
 
 #define delimiter "\n}\n"
 
@@ -27,7 +26,7 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     std::map<std::string, std::size_t> paths;
     std::queue<Message> write_queue_s;
     boost::asio::streambuf buf;
-    Database_Connection db{};
+    Database_Connection db;
 
     void request_handler(Message msg);
 
@@ -39,7 +38,7 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
 
     void do_write();        //writes the available messages from the queue to the socket
 
-    void enqueue_msg(const Message& msg, bool close);;
+    void enqueue_msg(const Message& msg);;
 
     Diff_vect compare_paths(ptree &client_pt);
 

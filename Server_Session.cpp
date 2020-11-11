@@ -3,6 +3,7 @@
 
 Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
 
+
 void Server_Session::update_paths(const std::string& path, size_t hash) {
     paths[path] = hash;
 }
@@ -16,19 +17,19 @@ void Server_Session::do_remove(const std::string& path) {
     boost::filesystem::remove_all(relative_path.data());
 }
 
+
 void Server_Session::start() {
     do_read_body();
 }
 
+
 void Server_Session::do_read_body() {
     std::cout << "Reading message body..." << std::endl;
     auto self(shared_from_this());
-    boost::asio::async_read_until(socket_,
-                                  buf,
-                                  delimiter,
-                                  [this, self](const boost::system::error_code ec, std::size_t length){
-        if (!ec) {
-            std::string str(boost::asio::buffers_begin(buf.data()),
+    boost::asio::async_read_until(socket_,buf, delimiter,
+            [this, self](const boost::system::error_code ec, std::size_t length){
+                if (!ec) {
+                    std::string str(boost::asio::buffers_begin(buf.data()),
                             boost::asio::buffers_begin(buf.data()) + buf.size());
             buf.consume(length);
             Message msg;
@@ -42,6 +43,7 @@ void Server_Session::do_read_body() {
         }
     });
 }
+
 
 void Server_Session::do_write() {
     std::cout << "Writing message..." << std::endl;
@@ -62,62 +64,49 @@ void Server_Session::do_write() {
 }
 
 Diff_vect Server_Session::compare_paths(ptree &client_pt) {
-    //Scanning received map in search for new elements
-    std::vector<std::string> toAdd;
+    std::vector<std::string> toAdd;     /* Scanning received map in search for new elements */
     for (auto &entry : client_pt) {
         auto it = paths.find(entry.first);
         if (it != paths.end()) {
             std::stringstream hash_stream(entry.second.data());
             size_t entry_hash;
             hash_stream >> entry_hash;
-            if (it->second != entry_hash) {
+            if (it->second != entry_hash)
                 toAdd.emplace_back(entry.first);
-            }
         } else {
             toAdd.emplace_back(entry.first);
         }
     }
-    //Scanning local map in search for deprecated elements
-    std::vector<std::string> toRem;
+    std::vector<std::string> toRem; /* Scanning local map in search for deprecated elements */
     for (auto &entry : paths) {
         auto it = client_pt.find(entry.first);
-        if (it == client_pt.not_found()) {
+        if (it == client_pt.not_found())
             toRem.emplace_back(entry.first);
-        }
     }
-
     return {toAdd, toRem};
 }
 
-void Server_Session::enqueue_msg(const Message &msg, bool close) {
+
+void Server_Session::enqueue_msg(const Message &msg) {
     bool write_in_progress = !write_queue_s.empty();
     write_queue_s.push(msg);
     if (!write_in_progress) do_write();
-    if (close) socket_.close();
 }
 
+
 void Server_Session::request_handler(Message msg) {
-    //std::cout << *msg.get_msg_ptr() << std::endl;
-    bool close = false;
     msg.decode_message();
     auto header = static_cast<action_type>(msg.get_header());
     std::string data = msg.get_data();
     int status_type;
     std::string response_str;
     Message response_msg;
-
     if (header != action_type::login && username.empty()) {
-
         status_type = 6;
         response_str = std::string("Login needed");
-        close = true;
-
     } else {
-
         switch (header) {
-
             case (action_type::login) : {
-
                 auto credentials = msg.get_credentials();
                 auto count_avail = db.check_database(std::get<0>(credentials), std::get<1>(credentials));
                 if (std::get<1>(count_avail)) {
@@ -128,37 +117,19 @@ void Server_Session::request_handler(Message msg) {
                     } else {
                         status_type = 6;
                         response_str = std::string("Access denied, try again");
-                        close = true;
                     }
                 } else {
                     status_type = 7;
                     response_str = std::string("Service unavailable");
-                    close = true;
                 }
-                /*
-                bool found = db.check_database(std::get<0>(credentials), std::get<1>(credentials));
-                if (found) {
-                    username = std::get<0>(credentials);
-                    status_type = 0;
-                    response_str = std::string("Access granted");
-                } else {
-                    status_type = 6;
-                    response_str = std::string("Access denied, try again");
-                    close = true;
-                }
-                */
-
                 break;
             }
-
             case (action_type::synchronize) : {
-
                 boost::property_tree::ptree pt;
                 std::stringstream data_stream;
                 data_stream << data;
                 boost::property_tree::json_parser::read_json(data_stream, pt);
                 auto found_avail = db.get_paths(paths, username);
-
                 if (std::get<1>(found_avail)) {
                     // vede se il database risponde
                     if (std::get<0>(found_avail)) {
@@ -187,12 +158,9 @@ void Server_Session::request_handler(Message msg) {
                     status_type = 7;
                     response_str = "Service unavailable";
                 }
-
                 break;
             }
-
             case (action_type::create) : {
-
                 boost::property_tree::ptree pt;
                 std::stringstream data_stream;
                 data_stream << data;
@@ -222,15 +190,11 @@ void Server_Session::request_handler(Message msg) {
                         outFile.close();
                     }
                 }
-
                 status_type = 1;
                 response_str = std::string(path) + std::string(" created");
-
                 break;
             }
-
             case (action_type::update) : {
-
                 boost::property_tree::ptree pt;
                 std::stringstream data_stream;
                 data_stream << data;
@@ -242,52 +206,52 @@ void Server_Session::request_handler(Message msg) {
                 if (isFile) {
                     auto content = pt.get<std::string>("content");
                     std::vector<BYTE> decodedData = base64_decode(content);
-
                     std::string directory = std::string("../../server/") + std::string(username);
                     std::string relative_path = directory + std::string("/") + std::string(path);
                     if (relative_path.find(':') < relative_path.size())
                         relative_path.replace(relative_path.find(':'), 1, ".");
-
                     boost::filesystem::remove_all(relative_path.data());
-
                     boost::filesystem::ofstream outFile(relative_path.data());
                     if (!content.empty()) {
                         outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
                         outFile.close();
                     }
                 }
-
                 status_type = 2;
                 response_str = std::string(path) + std::string(" updated");
                 break;
             }
-
             case (action_type::erase) : {
-
                 boost::property_tree::ptree pt;
                 std::stringstream data_stream;
                 data_stream << data;
                 boost::property_tree::json_parser::read_json(data_stream, pt);
                 auto path = pt.get<std::string>("path");
                 do_remove(path);
-
                 status_type = 3;
                 response_str = std::string(path) + std::string(" erased");
                 break;
             }
-
             default : {
                 status_type = 8;
                 response_str = std::string("Wrong action type");
             }
         }
-
     }
     // creating response message
     response_msg.encode_message(status_type, response_str);
-    enqueue_msg(response_msg, close);
+    enqueue_msg(response_msg);
 }
 
+
 Server_Session::~Server_Session() {
-    if (!paths.empty()) db.update_db_paths(paths, username);
+    if (!paths.empty()) {
+        bool result = db.update_db_paths(paths, username);
+        if (!result) {
+            Message response_msg;
+            std::string response_str("Service unavailable");
+            response_msg.encode_message(7, response_str);
+            enqueue_msg(response_msg);
+        }
+    }
 }
