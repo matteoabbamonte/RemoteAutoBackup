@@ -34,6 +34,7 @@ class Client {
                     std::cout << "Inside async_connect" << std::endl;
                     if (!ec) {
                         get_credentials();
+                        handle_exit();
                         do_read_body();
                     } else {
                         std::cout << "Error while connecting: ";
@@ -146,6 +147,18 @@ class Client {
         directoryWatcher.detach();
     }
 
+    void handle_exit() {
+        std::thread t_quit([this](){
+            while (true) {
+                std::string exit_str;
+                std::cin >> exit_str;
+                if (exit_str == "exit") break;
+            }
+            close();
+        });
+        t_quit.detach();
+    }
+
     void handle_failures() {
         boost::asio::async_connect(socket_, endpoints,
                                    [this](boost::system::error_code ec, const tcp::endpoint&){
@@ -181,7 +194,9 @@ class Client {
                             do_read_body();
                         }
                     } else {
-                        handle_failures();
+                        if (running) {
+                            handle_failures();
+                        }
                     }
         });
     }
@@ -322,13 +337,6 @@ class Client {
         enqueue_msg(login_message);
     }
 
-    void close() {
-        boost::asio::post(io_context_, [this]() {
-            socket_.close();
-            running = false;
-        });
-    }
-
     void enqueue_msg(const Message &msg) {
         bool write_in_progress = !write_queue_c.empty();
         write_queue_c.push(msg);
@@ -346,6 +354,13 @@ public:
             dw_ptr(std::make_shared<DirectoryWatcher>(dw)),
             delay(1000) {
         do_connect();
+    }
+
+    void close() {
+        boost::asio::post(io_context_, [this]() {
+            socket_.close();
+            running = false;
+        });
     }
 
     ~Client() {
@@ -390,9 +405,7 @@ int main(int argc, char* argv[]) {
 
             Client cl(io_context, endpoints, running, path_to_watch, dw);
 
-            std::thread t([&io_context](){ io_context.run(); });
-
-            t.join();
+            io_context.run();
 
         } while (!stop());
 
