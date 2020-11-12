@@ -23,6 +23,7 @@ class Client {
     std::shared_ptr<DirectoryWatcher> dw_ptr;
     std::queue<Message> write_queue_c;
     Credentials cred;
+    std::thread t_quit;
     std::string path_to_watch;
     std::chrono::duration<int, std::milli> delay;
     bool & running;
@@ -34,11 +35,9 @@ class Client {
                     std::cout << "Inside async_connect" << std::endl;
                     if (!ec) {
                         get_credentials();
-                        handle_exit();
                         do_read_body();
                     } else {
-                        std::cout << "Error while connecting: ";
-                        std::cerr << ec.message() << std::endl;
+                        std::cout << "Error while connecting. ";
                         close();
                     }
                 });
@@ -148,13 +147,12 @@ class Client {
     }
 
     void handle_exit() {
-        std::thread t_quit([this](){
-            while (true) {
+        t_quit = std::thread([this](){
+            while (running) {
                 std::string exit_str;
                 std::cin >> exit_str;
-                if (exit_str == "exit") break;
+                if (exit_str == "exit") close();
             }
-            close();
         });
         t_quit.detach();
     }
@@ -168,7 +166,7 @@ class Client {
                                            auto wait = std::chrono::duration_cast<std::chrono::seconds>(delay);
                                            std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
                                            std::this_thread::sleep_for(delay);
-                                           if (wait.count() > 20) {
+                                           if (wait.count() >= 20) {
                                                std::cout << "Server unavailable, shutting down." << std::endl;
                                                close();
                                            } else {
@@ -257,12 +255,14 @@ class Client {
                     write_msg.encode_message(2, file_string);
                     enqueue_msg(write_msg);
                 }
+                handle_exit();
+
                 break;
             }
             case status_type::unauthorized : {
                 std::cout << "Unauthorized." << std::endl;
-                close();
                 return_value = false;
+                close();
 
                 break;
             }
@@ -277,7 +277,7 @@ class Client {
                 } else {
                     handle_synch();
                 }
-                if (wait.count() > 20) {
+                if (wait.count() >= 20) {
                     std::cout << "Database unavailable, shutting down." << std::endl;
                     return_value = false;
                     close();
@@ -298,6 +298,11 @@ class Client {
                 std::cout << "Authorized." << std::endl;
                 do_start_watcher();
                 handle_synch();
+
+                break;
+            }
+            case status_type::no_need : {
+                handle_exit();
 
                 break;
             }
@@ -352,14 +357,14 @@ public:
             running(running),
             path_to_watch(path_to_watch),
             dw_ptr(std::make_shared<DirectoryWatcher>(dw)),
-            delay(1000) {
+            delay(5000) {
         do_connect();
     }
 
     void close() {
         boost::asio::post(io_context_, [this]() {
-            socket_.close();
             running = false;
+            socket_.close();
         });
     }
 
