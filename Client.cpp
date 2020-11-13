@@ -23,28 +23,67 @@ class Client {
     std::shared_ptr<DirectoryWatcher> dw_ptr;
     std::queue<Message> write_queue_c;
     Credentials cred;
-    std::thread t_quit;
+    std::thread input_reader;
+    std::thread directoryWatcher;
     std::string path_to_watch;
     std::chrono::duration<int, std::milli> delay;
     bool & running;
+    bool & stop;
+    std::mutex m;
+    std::condition_variable cv;
 
     void do_connect() {
         std::cout << "Trying to connect..." << std::endl;
         boost::asio::async_connect(socket_, endpoints,
                 [this](boost::system::error_code ec, const tcp::endpoint&) {
-                    std::cout << "Inside async_connect" << std::endl;
                     if (!ec) {
                         get_credentials();
                         do_read_body();
                     } else {
-                        std::cout << "Error while connecting. ";
+                        std::cout << "Error while connecting, do you want to reconnect? (y/n): ";
                         close();
                     }
                 });
     }
 
+    void do_start_input_reader() {
+        input_reader = std::thread([&](){
+            std::string input;
+            bool user_done = false;
+            std::cout << "Insert username: ";
+            while (std::cin >> input) {
+                if (input == "exit") {
+                    if (running) {
+                        std::cout << "Do you want to reconnect? (y/n): ";
+                        close();
+                    }
+                } else if (input == "y") {
+                    std::lock_guard lg(m);
+                    stop = false;
+                    cv.notify_all();
+                    break;
+                } else if (input == "n") {
+                    std::lock_guard lg(m);
+                    stop = true;
+                    cv.notify_all();
+                    break;
+                } else {
+                    std::lock_guard lg(m);
+                    if (!user_done) {
+                        set_username(input);
+                        user_done = true;
+                        std::cout << "Insert password: ";
+                    } else {
+                        set_password(input);
+                        cv.notify_all();
+                    }
+                }
+            }
+        });
+    }
+
     void do_start_watcher() {
-        std::thread directoryWatcher([this](){
+        directoryWatcher = std::thread([this](){
             dw_ptr->start([this](std::string path, FileStatus status, bool isFile) {
                 // Process only regular files, all other file types are ignored
                 if (boost::filesystem::is_regular_file(boost::filesystem::path(path))
@@ -146,17 +185,6 @@ class Client {
         directoryWatcher.detach();
     }
 
-    void handle_exit() {
-        t_quit = std::thread([this](){
-            while (running) {
-                std::string exit_str;
-                std::cin >> exit_str;
-                if (exit_str == "exit") close();
-            }
-        });
-        t_quit.detach();
-    }
-
     void handle_failures() {
         boost::asio::async_connect(socket_, endpoints,
                                    [this](boost::system::error_code ec, const tcp::endpoint&){
@@ -167,7 +195,7 @@ class Client {
                                            std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
                                            std::this_thread::sleep_for(delay);
                                            if (wait.count() >= 20) {
-                                               std::cout << "Server unavailable, shutting down." << std::endl;
+                                               std::cout << "Server unavailable, do you want to reconnect? (y/n): ";
                                                close();
                                            } else {
                                                handle_failures();
@@ -255,12 +283,11 @@ class Client {
                     write_msg.encode_message(2, file_string);
                     enqueue_msg(write_msg);
                 }
-                handle_exit();
 
                 break;
             }
             case status_type::unauthorized : {
-                std::cout << "Unauthorized." << std::endl;
+                std::cout << "Unauthorized, do you want to reconnect? (y/n): ";
                 return_value = false;
                 close();
 
@@ -278,7 +305,7 @@ class Client {
                     handle_synch();
                 }
                 if (wait.count() >= 20) {
-                    std::cout << "Database unavailable, shutting down." << std::endl;
+                    std::cout << "Database unavailable, do you want to reconnect? (y/n): ";
                     return_value = false;
                     close();
                 } else {
@@ -288,7 +315,7 @@ class Client {
                 break;
             }
             case status_type::wrong_action : {
-                std::cout << "Wrong action, rebooting." << std::endl;
+                std::cout << "Wrong action, do you want to reconnect? (y/n): ";
                 close();
                 return_value = false;
 
@@ -298,11 +325,6 @@ class Client {
                 std::cout << "Authorized." << std::endl;
                 do_start_watcher();
                 handle_synch();
-
-                break;
-            }
-            case status_type::no_need : {
-                handle_exit();
 
                 break;
             }
@@ -325,18 +347,16 @@ class Client {
                                     do_write();
                                 }
                             } else {
-                                std::cout << "Error while writing: ";
-                                std::cout << ec.message() << std::endl;
+                                std::cout << "Error while writing, do you want to reconnect? (y/n): ";
                                 close();
                             }
                 });
     }
 
     void get_credentials() {
-        std::cout << "Insert username: ";
-        std::cin >> cred.username;
-        std::cout << "Insert password: ";
-        std::cin >> cred.password;
+        std::unique_lock ul(m);
+        do_start_input_reader();
+        cv.wait(ul);
         Message login_message;
         login_message.put_credentials(cred.username, cred.password);
         enqueue_msg(login_message);
@@ -350,40 +370,48 @@ class Client {
 
 public:
 
-    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints, bool &running, std::string path_to_watch, DirectoryWatcher &dw) :
+    Client(boost::asio::io_context& io_context,
+           const tcp::resolver::results_type& endpoints,
+           bool &running,
+           std::string path_to_watch,
+           DirectoryWatcher &dw,
+           bool &stop) :
             io_context_(io_context),
             socket_(io_context),
             endpoints(endpoints),
             running(running),
             path_to_watch(path_to_watch),
             dw_ptr(std::make_shared<DirectoryWatcher>(dw)),
+            stop(stop),
             delay(5000) {
         do_connect();
     }
 
+    void set_username(std::string &user) {
+        cred.username = user;
+    }
+
+    void set_password(std::string &pwd) {
+        cred.password = pwd;
+    }
+
     void close() {
         boost::asio::post(io_context_, [this]() {
+            std::unique_lock ul(m);
+            cv.wait(ul);
             running = false;
             socket_.close();
+            if (input_reader.joinable()) input_reader.join();
+            if (directoryWatcher.joinable()) directoryWatcher.join();
         });
     }
 
     ~Client() {
-        close();
+        if (input_reader.joinable()) input_reader.join();
+        if (directoryWatcher.joinable()) directoryWatcher.join();
     }
 
 };
-
-bool stop() {
-    std::string stop;
-    do {
-        std::cout << "Do you want to reconnect? (y/n): ";
-        std::cin >> stop;
-    } while (stop != "y" && stop != "n");
-
-    if (stop == "n") return true;
-    return false;
-}
 
 
 int main(int argc, char* argv[]) {
@@ -395,24 +423,26 @@ int main(int argc, char* argv[]) {
         }
 
         std::string path_to_watch = argv[3];
+        bool stop = false;
 
         do {
+
+            bool running = true;
 
             boost::asio::io_context io_context;
 
             boost::asio::ip::tcp::resolver resolver(io_context);
             auto endpoints = resolver.resolve(argv[1], argv[2]);
 
-            bool running = true;
-
-            // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
             DirectoryWatcher dw{path_to_watch, std::chrono::milliseconds(5000), running};
 
-            Client cl(io_context, endpoints, running, path_to_watch, dw);
+            Client cl(io_context, endpoints, running, path_to_watch, dw, stop);
+
+            bool user_done = false;
 
             io_context.run();
 
-        } while (!stop());
+        } while (!stop);
 
     } catch (std::exception& e) {
 
