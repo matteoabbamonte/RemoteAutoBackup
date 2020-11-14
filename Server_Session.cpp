@@ -38,8 +38,7 @@ void Server_Session::do_read_body() {
             request_handler(msg);
             do_read_body();
         } else {
-            std::cout << "Error inside do_read_body: ";
-            std::cout << ec.message() << std::endl;
+            std::cerr << "Error inside do_read_body: " << ec.message() << std::endl;
         }
     });
 }
@@ -57,8 +56,7 @@ void Server_Session::do_write() {
                         do_write();
                     }
                 } else {
-                    std::cout << "Error inside do_write: ";
-                    std::cout << ec.message() << std::endl;
+                    std::cerr << "Error inside do_write: " << ec.message() << std::endl;
                 }
     });
 }
