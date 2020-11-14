@@ -40,7 +40,7 @@ class Client {
                         get_credentials();
                         do_read_body();
                     } else {
-                        std::cout << "Error while connecting, do you want to reconnect? (y/n): ";
+                        std::cerr << "Error while connecting. ";
                         close();
                     }
                 });
@@ -50,23 +50,25 @@ class Client {
         input_reader = std::thread([&](){
             std::string input;
             bool user_done = false;
+            bool cred_done = false;
             std::cout << "Insert username: ";
             while (std::cin >> input) {
-                if (input == "exit") {
-                    if (running) {
-                        std::cout << "Do you want to reconnect? (y/n): ";
-                        close();
+                if (cred_done) {
+                    if (input == "exit") {
+                        if (running) {
+                            close();
+                        }
+                    } else if (input == "y") {
+                        std::lock_guard lg(m);
+                        stop = false;
+                        cv.notify_all();
+                        break;
+                    } else if (input == "n") {
+                        std::lock_guard lg(m);
+                        stop = true;
+                        cv.notify_all();
+                        break;
                     }
-                } else if (input == "y") {
-                    std::lock_guard lg(m);
-                    stop = false;
-                    cv.notify_all();
-                    break;
-                } else if (input == "n") {
-                    std::lock_guard lg(m);
-                    stop = true;
-                    cv.notify_all();
-                    break;
                 } else {
                     std::lock_guard lg(m);
                     if (!user_done) {
@@ -75,6 +77,7 @@ class Client {
                         std::cout << "Insert password: ";
                     } else {
                         set_password(input);
+                        cred_done = true;
                         cv.notify_all();
                     }
                 }
@@ -195,7 +198,7 @@ class Client {
                                            std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
                                            std::this_thread::sleep_for(delay);
                                            if (wait.count() >= 20) {
-                                               std::cout << "Server unavailable, do you want to reconnect? (y/n): ";
+                                               std::cerr << "Server unavailable. ";
                                                close();
                                            } else {
                                                handle_failures();
@@ -287,7 +290,7 @@ class Client {
                 break;
             }
             case status_type::unauthorized : {
-                std::cout << "Unauthorized, do you want to reconnect? (y/n): ";
+                std::cerr << "Unauthorized. ";
                 return_value = false;
                 close();
 
@@ -305,7 +308,7 @@ class Client {
                     handle_synch();
                 }
                 if (wait.count() >= 20) {
-                    std::cout << "Database unavailable, do you want to reconnect? (y/n): ";
+                    std::cerr << "Database unavailable. ";
                     return_value = false;
                     close();
                 } else {
@@ -315,7 +318,7 @@ class Client {
                 break;
             }
             case status_type::wrong_action : {
-                std::cout << "Wrong action, do you want to reconnect? (y/n): ";
+                std::cerr << "Wrong action. ";
                 close();
                 return_value = false;
 
@@ -347,7 +350,7 @@ class Client {
                                     do_write();
                                 }
                             } else {
-                                std::cout << "Error while writing, do you want to reconnect? (y/n): ";
+                                std::cerr << "Error while writing. ";
                                 close();
                             }
                 });
@@ -397,16 +400,15 @@ public:
 
     void close() {
         boost::asio::post(io_context_, [this]() {
-            std::unique_lock ul(m);
-            cv.wait(ul);
-            running = false;
             socket_.close();
-            if (input_reader.joinable()) input_reader.join();
-            if (directoryWatcher.joinable()) directoryWatcher.join();
         });
     }
 
     ~Client() {
+        std::unique_lock ul(m);
+        std::cerr << "Do you want to reconnect? (y/n): ";
+        cv.wait(ul);
+        running = false;
         if (input_reader.joinable()) input_reader.join();
         if (directoryWatcher.joinable()) directoryWatcher.join();
     }
@@ -437,8 +439,6 @@ int main(int argc, char* argv[]) {
             DirectoryWatcher dw{path_to_watch, std::chrono::milliseconds(5000), running};
 
             Client cl(io_context, endpoints, running, path_to_watch, dw, stop);
-
-            bool user_done = false;
 
             io_context.run();
 
