@@ -9,7 +9,7 @@ class Backup_Server {
     tcp::acceptor acceptor;
 
     void do_accept() {
-        std::cout << "Accepting connection requests..." << std::endl;
+        std::cout << "Waiting for incoming connections..." << std::endl;
         acceptor.async_accept(
                 [this](boost::system::error_code ec, tcp::socket socket) {
                     if (!ec) {

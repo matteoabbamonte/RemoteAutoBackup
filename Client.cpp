@@ -40,8 +40,7 @@ class Client {
                         get_credentials();
                         do_read_body();
                     } else {
-                        std::cerr << "Error while connecting. ";
-                        close();
+                        handle_connection_failures();
                     }
                 });
     }
@@ -188,6 +187,38 @@ class Client {
         directoryWatcher.detach();
     }
 
+    void handle_connection_failures() {
+        boost::asio::async_connect(socket_, endpoints,
+                                   [this](boost::system::error_code ec, const tcp::endpoint&){
+                                       if (!ec) {
+                                           get_credentials();
+                                           do_read_body();
+                                       } else {
+                                           auto wait = std::chrono::duration_cast<std::chrono::seconds>(delay);
+                                           std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
+                                           std::this_thread::sleep_for(delay);
+                                           if (wait.count() >= 20) {
+                                               std::cerr << "Server unavailable. ";
+                                               std::cerr << "Do you want to reconnect? (y/n): ";
+                                               std::string input;
+                                               while (std::cin >> input) {
+                                                   if (input == "n") {
+                                                       stop = true;
+                                                       break;
+                                                   } else if (input == "y") {
+                                                       break;
+                                                   } else {
+                                                       std::cerr << "Do you want to reconnect? (y/n): ";
+                                                   }
+                                               }
+                                           } else {
+                                               delay *= 2;
+                                               handle_connection_failures();
+                                           }
+                                       }
+                                   });
+    }
+
     void handle_failures() {
         boost::asio::async_connect(socket_, endpoints,
                                    [this](boost::system::error_code ec, const tcp::endpoint&){
@@ -201,8 +232,8 @@ class Client {
                                                std::cerr << "Server unavailable. ";
                                                close();
                                            } else {
-                                               handle_failures();
                                                delay *= 2;
+                                               handle_failures();
                                            }
                                        }
                                    });
@@ -399,16 +430,16 @@ public:
     }
 
     void close() {
+        running = false;
         boost::asio::post(io_context_, [this]() {
-            socket_.close();
+            if (socket_.is_open()) socket_.close();
+            std::unique_lock ul(m);
+            std::cerr << "Do you want to reconnect? (y/n): ";
+            cv.wait(ul);
         });
     }
 
     ~Client() {
-        std::unique_lock ul(m);
-        std::cerr << "Do you want to reconnect? (y/n): ";
-        cv.wait(ul);
-        running = false;
         if (input_reader.joinable()) input_reader.join();
         if (directoryWatcher.joinable()) directoryWatcher.join();
     }
