@@ -58,6 +58,8 @@ class Client {
 
     bool handle_status(Message msg);
 
+    void read_file(const std::string& relative_path, const std::string& path, bool isFile, boost::property_tree::ptree& pt);
+
     void close();
 
 public:

@@ -23,10 +23,8 @@ size_t DirectoryWatcher::dirFile_Size(boost::filesystem::directory_entry& elemen
 }
 
 void DirectoryWatcher::start(std::function<void (std::string, FileStatus, bool)> action) {
-    while(*watching) {
-        // Wait for "delay" milliseconds
+    while (*watching) {
         std::this_thread::sleep_for(delay);
-
         auto it = paths_.begin();
         while (it != paths_.end()) {
             if (!boost::filesystem::exists(it->first)) {
@@ -34,13 +32,10 @@ void DirectoryWatcher::start(std::function<void (std::string, FileStatus, bool)>
                 it = paths_.erase(it);
             } else it++;
         }
-
         // Check if a file was created or modified
         for (boost::filesystem::directory_entry& element : boost::filesystem::recursive_directory_iterator(path_to_watch)) {
-
             if (element.path().filename().string().find(".",0) != 0) {
                 auto lats_time_mod = boost::filesystem::last_write_time(element);
-
                 //Element creation
                 if (paths_.find(element.path().string()) == paths_.end()) {
                     paths_[element.path().string()] = {lats_time_mod, boost::filesystem::is_regular_file(element), make_hash(element)};
