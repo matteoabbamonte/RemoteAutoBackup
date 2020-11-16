@@ -23,7 +23,7 @@ size_t DirectoryWatcher::dirFile_Size(boost::filesystem::directory_entry& elemen
 }
 
 void DirectoryWatcher::start(std::function<void (std::string, FileStatus, bool)> action) {
-    while(watching) {
+    while(*watching) {
         // Wait for "delay" milliseconds
         std::this_thread::sleep_for(delay);
 

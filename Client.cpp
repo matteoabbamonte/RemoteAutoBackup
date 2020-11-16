@@ -113,6 +113,8 @@ void Client::do_start_input_reader() {
                     *stop = true;
                     cv.notify_all();
                     break;
+                } else {
+                    std::cerr << "Do you want to reconnect? (y/n): ";
                 }
             } else {
                 std::lock_guard lg(m);
