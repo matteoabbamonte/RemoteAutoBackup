@@ -3,7 +3,6 @@
 
 Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
 
-
 void Server_Session::update_paths(const std::string& path, size_t hash) {
     paths[path] = hash;
 }
@@ -17,11 +16,9 @@ void Server_Session::do_remove(const std::string& path) {
     boost::filesystem::remove_all(relative_path.data());
 }
 
-
 void Server_Session::start() {
     do_read_body();
 }
-
 
 void Server_Session::do_read_body() {
     std::cout << "Reading message body..." << std::endl;
@@ -43,7 +40,6 @@ void Server_Session::do_read_body() {
     });
 }
 
-
 void Server_Session::do_write() {
     std::cout << "Writing message..." << std::endl;
     auto self(shared_from_this());
@@ -52,9 +48,7 @@ void Server_Session::do_write() {
             [this, self](boost::system::error_code ec, std::size_t /*length*/) {
                 if (!ec) {
                     write_queue_s.pop();
-                    if (!write_queue_s.empty()) {
-                        do_write();
-                    }
+                    if (!write_queue_s.empty()) do_write();
                 } else {
                     std::cerr << "Error inside do_write: " << ec.message() << std::endl;
                 }
@@ -69,8 +63,7 @@ Diff_vect Server_Session::compare_paths(ptree &client_pt) {
             std::stringstream hash_stream(entry.second.data());
             size_t entry_hash;
             hash_stream >> entry_hash;
-            if (it->second != entry_hash)
-                toAdd.emplace_back(entry.first);
+            if (it->second != entry_hash) toAdd.emplace_back(entry.first);
         } else {
             toAdd.emplace_back(entry.first);
         }
@@ -78,19 +71,16 @@ Diff_vect Server_Session::compare_paths(ptree &client_pt) {
     std::vector<std::string> toRem; /* Scanning local map in search for deprecated elements */
     for (auto &entry : paths) {
         auto it = client_pt.find(entry.first);
-        if (it == client_pt.not_found())
-            toRem.emplace_back(entry.first);
+        if (it == client_pt.not_found()) toRem.emplace_back(entry.first);
     }
     return {toAdd, toRem};
 }
-
 
 void Server_Session::enqueue_msg(const Message &msg) {
     bool write_in_progress = !write_queue_s.empty();
     write_queue_s.push(msg);
     if (!write_in_progress) do_write();
 }
-
 
 void Server_Session::request_handler(Message msg) {
     msg.decode_message();
@@ -138,14 +128,10 @@ void Server_Session::request_handler(Message msg) {
                             response_str = "No need";
                         } else {
                             status_type = 5;
-                            for (const auto &path : diffs.toAdd) {
-                                response_str += path + "||";
-                            }
+                            for (const auto &path : diffs.toAdd) response_str += path + "||";
                         }
                         if (!diffs.toRem.empty()) {
-                            for (const auto &path : diffs.toRem) {
-                                do_remove(path);
-                            }
+                            for (const auto &path : diffs.toRem) do_remove(path);
                         }
                     } else {
                         // deve rispondere in_need con tutta la mappa ricevuta come dati
@@ -168,9 +154,7 @@ void Server_Session::request_handler(Message msg) {
                 bool isFile = pt.get<bool>("isFile");
                 update_paths(path, hash);
                 std::string directory = std::string("../../server/") + std::string(username);
-                if (!boost::filesystem::is_directory(directory)) {
-                    boost::filesystem::create_directory(directory);
-                }
+                if (!boost::filesystem::is_directory(directory)) boost::filesystem::create_directory(directory);
                 std::string relative_path = directory + std::string("/") + std::string(path);
                 if (!isFile) {
                     // create a directory with the specified name
@@ -179,7 +163,6 @@ void Server_Session::request_handler(Message msg) {
                     // create a file with the specified name
                     auto content = pt.get<std::string>("content");
                     std::vector<BYTE> decodedData = base64_decode(content);
-
                     if (relative_path.find(':') < relative_path.size())
                         relative_path.replace(relative_path.find(':'), 1, ".");
                     boost::filesystem::ofstream outFile(relative_path.data());
@@ -236,11 +219,9 @@ void Server_Session::request_handler(Message msg) {
             }
         }
     }
-    // creating response message
     response_msg.encode_message(status_type, response_str);
     enqueue_msg(response_msg);
 }
-
 
 Server_Session::~Server_Session() {
     if (!paths.empty()) {
