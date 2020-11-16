@@ -3,9 +3,9 @@
 #define delimiter "\n}\n"
 
 Client::Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints,
-        std::shared_ptr<bool> &running, std::string path_to_watch, DirectoryWatcher &dw, std::shared_ptr<bool> &stop)
+        std::shared_ptr<bool> &running, std::string path_to_watch, DirectoryWatcher &dw, std::shared_ptr<bool> &stop, std::shared_ptr<bool> &watching)
         : io_context_(io_context), socket_(io_context), endpoints(endpoints), running(running),
-        path_to_watch(path_to_watch), dw_ptr(std::make_shared<DirectoryWatcher>(dw)), stop(stop), delay(5000) {
+        path_to_watch(path_to_watch), dw_ptr(std::make_shared<DirectoryWatcher>(dw)), stop(stop), watching(watching), delay(5000) {
             do_connect();
 }
 
@@ -36,6 +36,7 @@ void Client::do_read_body() {
                 do_read_body();
             }
         } else {
+            *watching = false;
             if (*running) {
                 handle_reading_failures();
             }
@@ -55,6 +56,7 @@ void Client::do_write() {
                                          do_write();
                                      }
                                  } else {
+                                     *watching = false;
                                      std::cerr << "Error while writing. ";
                                      close();
                                  }
@@ -130,6 +132,7 @@ void Client::do_start_input_reader() {
 
 
 void Client::do_start_watcher() {
+    if (!*watching) *watching = true;
     directoryWatcher = std::thread([this](){
         dw_ptr->start([this](std::string path, FileStatus status, bool isFile) {
             // Process only regular files, all other file types are ignored
@@ -374,6 +377,7 @@ bool Client::handle_status(Message msg) {
 
 void Client::close() {
     *running = false;
+    *watching = false;
     boost::asio::post(io_context_, [this]() {
         if (socket_.is_open()) socket_.close();
         std::unique_lock ul(m);

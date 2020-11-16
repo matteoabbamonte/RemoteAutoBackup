@@ -17,12 +17,13 @@ int main(int argc, char* argv[]) {
         std::string path_to_watch = argv[3];
         std::shared_ptr<bool> stop = std::make_shared<bool>(false);
         std::shared_ptr<bool> running = std::make_shared<bool>(true);
+        std::shared_ptr<bool> watching = std::make_shared<bool>(true);
         do {
             boost::asio::io_context io_context;
             boost::asio::ip::tcp::resolver resolver(io_context);
             auto endpoints = resolver.resolve(argv[1], argv[2]);
-            DirectoryWatcher dw{path_to_watch, std::chrono::milliseconds(5000), running};
-            Client cl(io_context, endpoints, running, path_to_watch, dw, stop);
+            DirectoryWatcher dw{path_to_watch, std::chrono::milliseconds(5000), watching};
+            Client cl(io_context, endpoints, running, path_to_watch, dw, stop, watching);
             io_context.run();
         } while (!*stop);
 

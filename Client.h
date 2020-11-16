@@ -28,6 +28,7 @@ class Client {
     std::chrono::duration<int, std::milli> delay;
     std::shared_ptr<bool> running;
     std::shared_ptr<bool> stop;
+    std::shared_ptr<bool> watching;
     std::mutex m;
     std::condition_variable cv;
 
@@ -61,7 +62,7 @@ class Client {
 
 public:
     Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints,
-           std::shared_ptr<bool> &running, std::string path_to_watch, DirectoryWatcher &dw, std::shared_ptr<bool> &stop);
+           std::shared_ptr<bool> &running, std::string path_to_watch, DirectoryWatcher &dw, std::shared_ptr<bool> &stop, std::shared_ptr<bool> &watching);
 
     ~Client();
 };

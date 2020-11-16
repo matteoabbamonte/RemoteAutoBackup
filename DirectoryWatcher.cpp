@@ -1,7 +1,7 @@
 #include "DirectoryWatcher.h"
 
-DirectoryWatcher::DirectoryWatcher(std::string path_to_watch, std::chrono::duration<int, std::milli> delay, std::shared_ptr<bool> &running)
-        : path_to_watch{std::move(path_to_watch)}, delay{delay}, running(running) {
+DirectoryWatcher::DirectoryWatcher(std::string path_to_watch, std::chrono::duration<int, std::milli> delay, std::shared_ptr<bool> &watching)
+        : path_to_watch{std::move(path_to_watch)}, delay{delay}, watching(watching) {
     for (boost::filesystem::directory_entry &element : boost::filesystem::recursive_directory_iterator(this->path_to_watch)) {
         if (element.path().filename().string().find(".",0) != 0) {
             auto lats_time_mod = boost::filesystem::last_write_time(element);
@@ -23,7 +23,7 @@ size_t DirectoryWatcher::dirFile_Size(boost::filesystem::directory_entry& elemen
 }
 
 void DirectoryWatcher::start(std::function<void (std::string, FileStatus, bool)> action) {
-    while(running) {
+    while(watching) {
         // Wait for "delay" milliseconds
         std::this_thread::sleep_for(delay);
 
