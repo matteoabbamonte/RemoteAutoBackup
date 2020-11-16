@@ -1,6 +1,6 @@
 #include "DirectoryWatcher.h"
 
-DirectoryWatcher::DirectoryWatcher(std::string path_to_watch, std::chrono::duration<int, std::milli> delay, bool &running)
+DirectoryWatcher::DirectoryWatcher(std::string path_to_watch, std::chrono::duration<int, std::milli> delay, std::shared_ptr<bool> &running)
         : path_to_watch{std::move(path_to_watch)}, delay{delay}, running(running) {
     for (boost::filesystem::directory_entry &element : boost::filesystem::recursive_directory_iterator(this->path_to_watch)) {
         if (element.path().filename().string().find(".",0) != 0) {
