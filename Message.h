@@ -7,29 +7,16 @@
 
 class Message {
     boost::property_tree::ptree pt;
-    char *size;
-    char *msg_ptr;
+    std::shared_ptr<std::string> msg_ptr;
 
 public:
     Message();
 
-    /*~Message();*/
-
-    void encode_header(int header);
-
-    void encode_data(std::string& data);
-
     void zip_message();
 
-    char* get_size_ptr();   //get pointer to the beginning of the size buffer
+    void clear();
 
-    char* get_msg_ptr(int size_b);    //get pointer to the beginning of the message buffer, initializing the pointer to the char array
-
-    char* get_msg_ptr();    //get pointer to the beginning of the message buffer
-
-    int get_size_int();     //get the size as int
-
-    bool decode_size();
+    std::shared_ptr<std::string> get_msg_ptr();    //get pointer to the beginning of the message buffer
 
     void decode_message();
 
@@ -40,4 +27,6 @@ public:
     std::tuple<std::string, std::string> get_credentials();
 
     void put_credentials(const std::string& username, const std::string& password);
+
+    void encode_message(int header, std::string& data);
 };

@@ -1,244 +1,164 @@
 #include "Server_Session.h"
+#include "Base64/base64.h"
 
-Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)), server_availability(true) {}
+Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
 
-void Server_Session::update_paths(std::string path, size_t hash) {
+
+void Server_Session::update_paths(const std::string& path, size_t hash) {
     paths[path] = hash;
 }
 
-void Server_Session::remove_path(std::string path) {
+void Server_Session::do_remove(const std::string& path) {
     paths.erase(path);
+    std::string directory = std::string("../../server/") + std::string(username);
+    std::string relative_path = directory + std::string("/") + std::string(path);
+    if (relative_path.find(':') < relative_path.size())
+        relative_path.replace(relative_path.find(':'), 1, ".");
+    boost::filesystem::remove_all(relative_path.data());
 }
+
 
 void Server_Session::start() {
-    do_read_size();
+    do_read_body();
 }
 
-void Server_Session::do_read_size() {
-    std::cout << "Reading message size..." << std::endl;
-    auto self(shared_from_this());
-    boost::asio::async_read(socket_,
-            boost::asio::buffer(read_msg.get_size_ptr(), 10),
-            [this, self](boost::system::error_code ec, std::size_t /*length*/) {
-                if (!ec && read_msg.decode_size()) {
-                    std::cout << "Size decoded, reading body" << std::endl;
-                    do_read_body();
-                } else {
-                    std::cout << "Error inside do_read_size: ";
-                    std::cerr << ec.message() << std::endl;
-                }
-    });
-}
 
 void Server_Session::do_read_body() {
     std::cout << "Reading message body..." << std::endl;
     auto self(shared_from_this());
-    socket_.async_read_some(boost::asio::buffer(read_msg.get_msg_ptr(read_msg.get_size_int()), read_msg.get_size_int()),
-            [this, self](boost::system::error_code ec, std::size_t /*length*/) {
+    boost::asio::async_read_until(socket_,buf, delimiter,
+            [this, self](const boost::system::error_code ec, std::size_t length){
                 if (!ec) {
-                    request_handler();
-                    do_read_size();
-                } else {
-                    std::cout << "Error inside do_read_body: ";
-                    std::cout << ec.message() << std::endl;
-                }
+                    std::string str(boost::asio::buffers_begin(buf.data()),
+                            boost::asio::buffers_begin(buf.data()) + buf.size());
+            buf.consume(length);
+            Message msg;
+            *msg.get_msg_ptr() = str;
+            msg.get_msg_ptr()->resize(length);
+            request_handler(msg);
+            do_read_body();
+        } else {
+            std::cerr << "Error inside do_read_body: " << ec.message() << std::endl;
+        }
     });
 }
+
 
 void Server_Session::do_write() {
     std::cout << "Writing message..." << std::endl;
     auto self(shared_from_this());
     boost::asio::async_write(socket_,
-            boost::asio::buffer(write_queue_s.front().get_msg_ptr(),write_queue_s.front().get_size_int()),
+            boost::asio::dynamic_string_buffer(*write_queue_s.front().get_msg_ptr()),
             [this, self](boost::system::error_code ec, std::size_t /*length*/) {
                 if (!ec) {
-                    write_queue_s.pop_front();
+                    write_queue_s.pop();
                     if (!write_queue_s.empty()) {
                         do_write();
                     }
                 } else {
-                    std::cout << "Error inside do_write: ";
-                    std::cout << ec.message() << std::endl;
+                    std::cerr << "Error inside do_write: " << ec.message() << std::endl;
                 }
     });
 }
 
-bool Server_Session::check_database(std::string temp_username, std::string password) {
-    std::cout << "Checking Database..." << std::endl;
-    sqlite3* conn;
-    int count = 0;
-    if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
-        std::string sqlStatement = std::string("SELECT COUNT(*) FROM Client WHERE username = '") + temp_username + std::string("' AND password = '") + password + std::string("';");
-        sqlite3_stmt *statement;
-        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);
-        if (res == SQLITE_OK) {
-            while( sqlite3_step(statement) == SQLITE_ROW ) {
-                count = sqlite3_column_int(statement, 0);
-            }
-        } else {
-            std::cout << "Database Error: " << res << ", " << sqlite3_errmsg(conn) << std::endl;
-        }
-        sqlite3_finalize(statement);
-        sqlite3_close(conn);
-    }
-    return count;
-}
-
-void Server_Session::update_db_paths() {
-    std::cout << "Updating Database..." << std::endl;
-    boost::property_tree::ptree pt;
-    for (auto it = paths.begin(); it != paths.end(); it++) {
-        pt.add(it->first, it->second);
-    }
-    std::stringstream map_to_stream;
-    boost::property_tree::write_json(map_to_stream, pt);
-    std::cout << map_to_stream.str() << std::endl;
-    sqlite3* conn;
-    int count = 0;
-    if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
-        std::string sqlStatement = std::string("UPDATE client SET paths = '") + map_to_stream.str() + std::string("' WHERE username = '") + username + std::string("';");
-        sqlite3_stmt *statement;
-        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);
-        if (res == SQLITE_OK) {
-            sqlite3_step(statement);
-        } else {
-            std::cout << "Database Error: " << res << ", " << sqlite3_errmsg(conn) << std::endl;
-        }
-        sqlite3_finalize(statement);
-        sqlite3_close(conn);
-    }
-}
-
-
-bool Server_Session::get_paths() {
-    sqlite3* conn;
-    unsigned char *paths_ch;
-    bool found = false;
-    if (sqlite3_open("../Clients.sqlite", &conn) == SQLITE_OK) {
-        std::string sqlStatement = std::string("SELECT paths FROM client WHERE username = '") + username + std::string("';");
-        sqlite3_stmt *statement;
-        if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, NULL) == SQLITE_OK) {
-            while( sqlite3_step(statement) == SQLITE_ROW ) {
-                paths_ch = const_cast<unsigned char*>(sqlite3_column_text(statement, 0));
-            }
-            if (paths_ch != NULL) {
-                std::string paths_str(reinterpret_cast<char*>(paths_ch));   //cast in order to remove unsigned
-                found = true;
-                boost::property_tree::ptree pt;
-                boost::property_tree::read_json(paths_str, pt);
-                for (auto pair : pt) {
-                    std::stringstream hash_stream(pair.second.data());
-                    size_t hash;
-                    hash_stream >> hash;
-                    paths[pair.first] = hash;
-                }
-            }
-        } else {
-            server_availability = false;
-            //std::cout << "Database Connection Error" << std::endl;
-        }
-        sqlite3_finalize(statement);
-        sqlite3_close(conn);
-        return found;
-    } else {
-        server_availability = false;
-    }
-    return found;
-}
-
-std::vector<std::string> Server_Session::compare_paths(ptree client_pt) {
-    std::vector<std::string> response_paths;
+Diff_vect Server_Session::compare_paths(ptree &client_pt) {
+    std::vector<std::string> toAdd;     /* Scanning received map in search for new elements */
     for (auto &entry : client_pt) {
         auto it = paths.find(entry.first);
         if (it != paths.end()) {
             std::stringstream hash_stream(entry.second.data());
             size_t entry_hash;
             hash_stream >> entry_hash;
-            if (it->second != entry_hash) {
-                response_paths.emplace_back(it->first);
-            }
+            if (it->second != entry_hash)
+                toAdd.emplace_back(entry.first);
         } else {
-            response_paths.emplace_back(it->first);
+            toAdd.emplace_back(entry.first);
         }
     }
-    return response_paths;
+    std::vector<std::string> toRem; /* Scanning local map in search for deprecated elements */
+    for (auto &entry : paths) {
+        auto it = client_pt.find(entry.first);
+        if (it == client_pt.not_found())
+            toRem.emplace_back(entry.first);
+    }
+    return {toAdd, toRem};
 }
 
-void Server_Session::enqueue_msg(const Message &msg, bool close) {
-    write_queue_s.emplace_back(msg);
-    do_write();
-    if (close) socket_.close();
+
+void Server_Session::enqueue_msg(const Message &msg) {
+    bool write_in_progress = !write_queue_s.empty();
+    write_queue_s.push(msg);
+    if (!write_in_progress) do_write();
 }
 
-void Server_Session::request_handler() {
-    bool close = false;
-    read_msg.decode_message();
-    action_type header = static_cast<action_type>(read_msg.get_header());
-    std::string data = read_msg.get_data();
+
+void Server_Session::request_handler(Message msg) {
+    msg.decode_message();
+    auto header = static_cast<action_type>(msg.get_header());
+    std::string data = msg.get_data();
     int status_type;
     std::string response_str;
     Message response_msg;
-
     if (header != action_type::login && username.empty()) {
-
         status_type = 6;
         response_str = std::string("Login needed");
-        close = true;
-
     } else {
-
         switch (header) {
-
             case (action_type::login) : {
-
-                auto credentials = read_msg.get_credentials();
-                bool found = Server_Session::check_database(std::get<0>(credentials), std::get<1>(credentials));
-                if (found) {
-                    username = std::get<0>(credentials);
-                    status_type = 0;
-                    response_str = std::string("Access granted");
+                auto credentials = msg.get_credentials();
+                auto count_avail = db.check_database(std::get<0>(credentials), std::get<1>(credentials));
+                if (std::get<1>(count_avail)) {
+                    if (std::get<0>(count_avail)) {
+                        username = std::get<0>(credentials);
+                        status_type = 0;
+                        response_str = std::string("Access granted");
+                    } else {
+                        status_type = 6;
+                        response_str = std::string("Access denied, try again");
+                    }
                 } else {
-                    status_type = 6;
-                    response_str = std::string("Access denied, try again");
-                    close = true;
+                    status_type = 7;
+                    response_str = std::string("login");
                 }
-
                 break;
             }
-
             case (action_type::synchronize) : {
-
                 boost::property_tree::ptree pt;
                 std::stringstream data_stream;
                 data_stream << data;
                 boost::property_tree::json_parser::read_json(data_stream, pt);
-                if (get_paths()) {
+                auto found_avail = db.get_paths(paths, username);
+                if (std::get<1>(found_avail)) {
                     // vede se il database risponde
-                    if (server_availability) {
+                    if (std::get<0>(found_avail)) {
                         // deve confrontare le mappe e rispondere con in_need o no_need
-                        std::vector<std::string> missing_paths = compare_paths(pt);
-                        if (missing_paths.empty()) {
+                        Diff_vect diffs = compare_paths(pt);
+                        if (diffs.toAdd.empty()) {
                             status_type = 4;
                             response_str = "No need";
                         } else {
                             status_type = 5;
-                            for (const auto &path : missing_paths) response_str += path + "||";
+                            for (const auto &path : diffs.toAdd) {
+                                response_str += path + "||";
+                            }
+                        }
+                        if (!diffs.toRem.empty()) {
+                            for (const auto &path : diffs.toRem) {
+                                do_remove(path);
+                            }
                         }
                     } else {
-                        status_type = 7;
-                        response_str = "Service unavailable";
+                        // deve rispondere in_need con tutta la mappa ricevuta come dati
+                        status_type = 5;
+                        for (const auto &path : pt) response_str += path.first + "||";
                     }
                 } else {
-                    // deve rispondere in_need con tutta la mappa ricevuta come dati
-                    status_type = 5;
-                    for (const auto &path : pt) response_str += path.first + "||";
+                    status_type = 7;
+                    response_str = std::string("synchronize");
                 }
-
                 break;
             }
-
             case (action_type::create) : {
-
                 boost::property_tree::ptree pt;
                 std::stringstream data_stream;
                 data_stream << data;
@@ -247,94 +167,89 @@ void Server_Session::request_handler() {
                 auto hash = pt.get<std::size_t>("hash");
                 bool isFile = pt.get<bool>("isFile");
                 update_paths(path, hash);
-                std::string relative_path =
-                        std::string("../") + std::string(username) + std::string("/") + std::string(path);
+                std::string directory = std::string("../../server/") + std::string(username);
+                if (!boost::filesystem::is_directory(directory)) {
+                    boost::filesystem::create_directory(directory);
+                }
+                std::string relative_path = directory + std::string("/") + std::string(path);
                 if (!isFile) {
                     // create a directory with the specified name
                     boost::filesystem::create_directory(relative_path);
                 } else {
                     // create a file with the specified name
                     auto content = pt.get<std::string>("content");
+                    std::vector<BYTE> decodedData = base64_decode(content);
+
                     if (relative_path.find(':') < relative_path.size())
                         relative_path.replace(relative_path.find(':'), 1, ".");
                     boost::filesystem::ofstream outFile(relative_path.data());
                     if (!content.empty()) {
-                        outFile.open(relative_path.data(), std::ios::binary);
-                        outFile.write(content.data(), content.size());
+                        outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
                         outFile.close();
                     }
                 }
-
                 status_type = 1;
                 response_str = std::string(path) + std::string(" created");
-
                 break;
             }
-
             case (action_type::update) : {
-
                 boost::property_tree::ptree pt;
                 std::stringstream data_stream;
                 data_stream << data;
                 boost::property_tree::json_parser::read_json(data_stream, pt);
                 auto path = pt.get<std::string>("path");
                 auto hash = pt.get<std::size_t>("hash");
-                bool isDirectory = pt.get<bool>("isDirectory");
+                bool isFile = pt.get<bool>("isFile");
                 update_paths(path, hash);
-                if (!isDirectory) {
+                if (isFile) {
                     auto content = pt.get<std::string>("content");
-                    std::string relative_path =
-                            std::string("../") + std::string(username) + std::string("/") +
-                            std::string(path);
+                    std::vector<BYTE> decodedData = base64_decode(content);
+                    std::string directory = std::string("../../server/") + std::string(username);
+                    std::string relative_path = directory + std::string("/") + std::string(path);
                     if (relative_path.find(':') < relative_path.size())
                         relative_path.replace(relative_path.find(':'), 1, ".");
-                    boost::filesystem::remove(relative_path.data());
+                    boost::filesystem::remove_all(relative_path.data());
                     boost::filesystem::ofstream outFile(relative_path.data());
-                    outFile.open(relative_path.data(), std::ios::binary);
-                    outFile.write(content.data(), content.size());
-                    outFile.close();
+                    if (!content.empty()) {
+                        outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
+                        outFile.close();
+                    }
                 }
-
                 status_type = 2;
                 response_str = std::string(path) + std::string(" updated");
                 break;
             }
-
             case (action_type::erase) : {
-
                 boost::property_tree::ptree pt;
                 std::stringstream data_stream;
                 data_stream << data;
                 boost::property_tree::json_parser::read_json(data_stream, pt);
                 auto path = pt.get<std::string>("path");
-                remove_path(path);
-                std::string relative_path = std::string("../") + std::string(username) + std::string("/") + std::string(path);
-                if (relative_path.find(':') < relative_path.size())
-                    relative_path.replace(relative_path.find(':'), 1, ".");
-                boost::filesystem::remove(relative_path.data());
-
+                do_remove(path);
                 status_type = 3;
                 response_str = std::string(path) + std::string(" erased");
                 break;
             }
-
             default : {
                 status_type = 8;
                 response_str = std::string("Wrong action type");
             }
         }
-
     }
-
     // creating response message
-    response_msg.encode_header(status_type);
-    response_msg.encode_data(response_str);
-    response_msg.zip_message();
-    enqueue_msg(response_msg, close);
-
+    response_msg.encode_message(status_type, response_str);
+    enqueue_msg(response_msg);
 }
 
+
 Server_Session::~Server_Session() {
-    std::cout << "Distruttore server session" << std::endl;
-    if (!paths.empty()) update_db_paths();
+    if (!paths.empty()) {
+        bool result = db.update_db_paths(paths, username);
+        if (!result) {
+            Message response_msg;
+            std::string response_str("Service unavailable");
+            response_msg.encode_message(7, response_str);
+            enqueue_msg(response_msg);
+        }
+    }
 }
