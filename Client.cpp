@@ -1,5 +1,4 @@
 #include "Client.h"
-
 #define delimiter "\n}\n"
 
 Client::Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints,
@@ -42,16 +41,16 @@ void Client::do_write() {
     std::cout << "Writing message..." << std::endl;
     std::string str(*write_queue_c.front().get_msg_ptr());
     boost::asio::async_write(socket_, boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
-                             [this](boost::system::error_code ec, std::size_t /*length*/) {
-                                 if (!ec) {
-                                     write_queue_c.pop();
-                                     if (!write_queue_c.empty()) do_write();
-                                 } else {
-                                     *watching = false;
-                                     std::cerr << "Error while writing. ";
-                                     close();
-                                 }
-                             });
+            [this](boost::system::error_code ec, std::size_t /*length*/) {
+                if (!ec) {
+                    write_queue_c.pop();
+                    if (!write_queue_c.empty()) do_write();
+                } else {
+                    *watching = false;
+                    std::cerr << "Error while writing. ";
+                    close();
+                }
+    });
 }
 
 void Client::enqueue_msg(const Message &msg) {
