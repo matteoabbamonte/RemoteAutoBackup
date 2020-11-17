@@ -130,8 +130,12 @@ void Client::do_start_watcher() {
                     case FileStatus::created : {
                         if (isFile) std::cout << "File created: " << path << '\n';
                         else std::cout << "Directory created: " << path << '\n';
-                        read_file(relative_path, path, isFile, pt);
-                        action_type = 2;
+                        try {
+                            read_file(relative_path, path, isFile, pt);
+                            action_type = 2;
+                        } catch (const std::ios_base::failure &failure) {
+                            std::cerr << "Error while opening the file: " << path << "\n It won't be sent." << std::endl;
+                        }
                         break;
                     }
                     case FileStatus::modified : {
@@ -139,11 +143,15 @@ void Client::do_start_watcher() {
                             relative_path.replace(relative_path.find(':'), 1, ".");
                         if (isFile) {
                             std::cout << "File modified: " << relative_path << '\n';
-                            read_file(relative_path, path, isFile, pt);
+                            try {
+                                read_file(relative_path, path, isFile, pt);
+                                action_type = 3;
+                            } catch (const std::ios_base::failure &failure) {
+                                std::cerr << "Error while opening the file: " << path << "\n It won't be sent." << std::endl;
+                            }
                         } else {
                             std::cout << "Directory modified: " << relative_path << '\n';
                         }
-                        action_type = 3;
                         break;
                     }
                     case FileStatus::erased : {
@@ -335,7 +343,21 @@ void Client::close() {
 
 void Client::read_file(const std::string& relative_path, const std::string& path, bool isFile, boost::property_tree::ptree& pt) {
     std::ifstream inFile;
-    inFile.open(relative_path, std::ios::in|std::ios::binary);
+    bool reopen_done = false;
+    do {
+        try {
+            inFile.open(relative_path, std::ios::in|std::ios::binary);
+        } catch (const std::ios_base::failure &failure) {
+            std::cerr << "Error while opening file: " << failure.what() << std::endl;
+            if (!reopen_done) {
+                std::this_thread::sleep_for(std::chrono::duration<int, std::milli>(2000));
+                reopen_done = true;
+            } else {
+                reopen_done = false;
+                throw;
+            }
+        }
+    } while (reopen_done);
     std::vector<BYTE> buffer_vec;
     char ch;
     while (inFile.get(ch)) buffer_vec.emplace_back(ch);
