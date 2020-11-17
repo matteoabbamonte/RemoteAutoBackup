@@ -348,7 +348,6 @@ void Client::read_file(const std::string& relative_path, const std::string& path
         try {
             inFile.open(relative_path, std::ios::in|std::ios::binary);
         } catch (const std::ios_base::failure &failure) {
-            std::cerr << "Error while opening file: " << failure.what() << std::endl;
             if (!reopen_done) {
                 std::this_thread::sleep_for(std::chrono::duration<int, std::milli>(2000));
                 reopen_done = true;
