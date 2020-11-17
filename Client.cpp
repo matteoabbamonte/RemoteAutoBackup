@@ -203,6 +203,10 @@ void Client::handle_connection_failures() {
 void Client::handle_reading_failures() {
     boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {
         if (!ec) {
+            Message login_message;
+            login_message.put_credentials(cred.username, cred.password);
+            enqueue_msg(login_message);
+            do_start_watcher();
             do_read_body();
         } else {
             auto wait = std::chrono::duration_cast<std::chrono::seconds>(delay);

@@ -35,7 +35,8 @@ void Server_Session::do_read_body() {
             request_handler(msg);
             do_read_body();
         } else {
-            std::cerr << "Error inside do_read_body: " << ec.message() << std::endl;
+            if (!username.empty()) std::cout << "Client " << username << " disconnected, closing session..." << std::endl;
+            else std::cout << "Error during login phase, closing session..." << std::endl;
         }
     });
 }
