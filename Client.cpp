@@ -122,7 +122,7 @@ void Client::do_start_watcher() {
             if (boost::filesystem::is_regular_file(boost::filesystem::path(path))   // Process only regular files, all other file types are ignored
             || boost::filesystem::is_directory(boost::filesystem::path(path)) || status == FileStatus::erased) {
                 boost::property_tree::ptree pt;
-                int action_type;
+                int action_type = 999;
                 std::string relative_path = path;
                 path = path.substr(path_to_watch.size() + 1);
                 if (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");
@@ -134,7 +134,7 @@ void Client::do_start_watcher() {
                             read_file(relative_path, path, isFile, pt);
                             action_type = 2;
                         } catch (...) {
-                            std::cerr << "Error while opening the file: " << path << "\n It won't be sent." << std::endl;
+                            std::cerr << "Error while opening the file: " << path << " It won't be sent." << std::endl;
                         }
                         break;
                     }
@@ -165,12 +165,14 @@ void Client::do_start_watcher() {
                         std::cout << "Error! Unknown file status.\n";
                 }
                 //writing message
-                std::stringstream file_stream;
-                boost::property_tree::write_json(file_stream, pt, false);
-                std::string file_string(file_stream.str());
-                Message write_msg;
-                write_msg.encode_message(action_type, file_string);
-                enqueue_msg(write_msg);
+                if (action_type <=4) {
+                    std::stringstream file_stream;
+                    boost::property_tree::write_json(file_stream, pt, false);
+                    std::string file_string(file_stream.str());
+                    Message write_msg;
+                    write_msg.encode_message(action_type, file_string);
+                    enqueue_msg(write_msg);
+                }
             }
         });
     });
@@ -183,8 +185,8 @@ void Client::read_file(const std::string& relative_path, const std::string& path
     do {
         try {
             inFile.open(relative_path, std::ios::in|std::ios::binary);
-            throw;
-        } catch (...) {
+            throw std::ios_base::failure("Error while opening");
+        } catch (const std::ios_base::failure &err) {
             if (!reopen_done) {
                 std::this_thread::sleep_for(std::chrono::duration<int, std::milli>(2000));
                 reopen_done = true;
