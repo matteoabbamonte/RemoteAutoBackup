@@ -189,7 +189,23 @@ void Client::read_file(const std::string& relative_path, const std::string& path
     do {
         try {
             inFile.open(relative_path, std::ios::in|std::ios::binary);
+            std::vector<BYTE> buffer_vec;
+            char ch;
+            while (inFile.get(ch)) buffer_vec.emplace_back(ch);
+            std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
+            pt.clear();
+            pt.add("path", path);
+            pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
+            pt.add("isFile", isFile);
+            pt.add("content", encodedData);
         } catch (const std::ios_base::failure &err) {
+            if (!reopen_done) {
+                std::this_thread::sleep_for(std::chrono::duration<int, std::milli>(2000));
+                reopen_done = true;
+            } else {
+                throw;
+            }
+        } catch (const boost::property_tree::ptree_bad_data &err) {
             if (!reopen_done) {
                 std::this_thread::sleep_for(std::chrono::duration<int, std::milli>(2000));
                 reopen_done = true;
@@ -198,14 +214,6 @@ void Client::read_file(const std::string& relative_path, const std::string& path
             }
         }
     } while (reopen_done);
-    std::vector<BYTE> buffer_vec;
-    char ch;
-    while (inFile.get(ch)) buffer_vec.emplace_back(ch);
-    std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
-    pt.add("path", path);
-    pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
-    pt.add("isFile", isFile);
-    pt.add("content", encodedData);
 }
 
 void Client::handle_connection_failures() {

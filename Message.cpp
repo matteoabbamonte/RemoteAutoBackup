@@ -14,15 +14,13 @@ void Message::zip_message() {
 }
 
 std::shared_ptr<std::string> Message::get_msg_ptr() {
-    std::string temp(*msg_ptr);
     return msg_ptr;
 }
 
 void Message::decode_message() {
     std::stringstream stream;
     stream << (*msg_ptr);
-    std::string temp(stream.str());
-    std::cout << temp << std::endl;
+    std::cout << (*msg_ptr) << std::endl;
     read_json(stream, pt);
 }
 

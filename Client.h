@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <boost/asio.hpp>
+#include <boost/property_tree/exceptions.hpp>
 #include <queue>
 #include "Base64/base64.h"
 #include "DirectoryWatcher.h"
