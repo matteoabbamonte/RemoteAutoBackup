@@ -133,7 +133,7 @@ void Client::do_start_watcher() {
                         try {
                             read_file(relative_path, path, isFile, pt);
                             action_type = 2;
-                        } catch (const std::ios_base::failure &failure) {
+                        } catch (...) {
                             std::cerr << "Error while opening the file: " << path << "\n It won't be sent." << std::endl;
                         }
                         break;
@@ -146,7 +146,7 @@ void Client::do_start_watcher() {
                             try {
                                 read_file(relative_path, path, isFile, pt);
                                 action_type = 3;
-                            } catch (const std::ios_base::failure &failure) {
+                            } catch (...) {
                                 std::cerr << "Error while opening the file: " << path << "\n It won't be sent." << std::endl;
                             }
                         } else {
@@ -175,6 +175,32 @@ void Client::do_start_watcher() {
         });
     });
     directoryWatcher.detach();
+}
+
+void Client::read_file(const std::string& relative_path, const std::string& path, bool isFile, boost::property_tree::ptree& pt) {
+    std::ifstream inFile;
+    bool reopen_done = false;
+    do {
+        try {
+            inFile.open(relative_path, std::ios::in|std::ios::binary);
+            throw;
+        } catch (...) {
+            if (!reopen_done) {
+                std::this_thread::sleep_for(std::chrono::duration<int, std::milli>(2000));
+                reopen_done = true;
+            } else {
+                throw;
+            }
+        }
+    } while (reopen_done);
+    std::vector<BYTE> buffer_vec;
+    char ch;
+    while (inFile.get(ch)) buffer_vec.emplace_back(ch);
+    std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
+    pt.add("path", path);
+    pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
+    pt.add("isFile", isFile);
+    pt.add("content", encodedData);
 }
 
 void Client::handle_connection_failures() {
@@ -339,32 +365,6 @@ void Client::close() {
         std::cerr << "Do you want to reconnect? (y/n): ";
         cv.wait(ul);
     });
-}
-
-void Client::read_file(const std::string& relative_path, const std::string& path, bool isFile, boost::property_tree::ptree& pt) {
-    std::ifstream inFile;
-    bool reopen_done = false;
-    do {
-        try {
-            inFile.open(relative_path, std::ios::in|std::ios::binary);
-        } catch (const std::ios_base::failure &failure) {
-            if (!reopen_done) {
-                std::this_thread::sleep_for(std::chrono::duration<int, std::milli>(2000));
-                reopen_done = true;
-            } else {
-                reopen_done = false;
-                throw;
-            }
-        }
-    } while (reopen_done);
-    std::vector<BYTE> buffer_vec;
-    char ch;
-    while (inFile.get(ch)) buffer_vec.emplace_back(ch);
-    std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
-    pt.add("path", path);
-    pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
-    pt.add("isFile", isFile);
-    pt.add("content", encodedData);
 }
 
 Client::~Client() {
