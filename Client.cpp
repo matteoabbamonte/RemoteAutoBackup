@@ -135,6 +135,7 @@ void Client::do_start_watcher() {
                             action_type = 2;
                         } catch (...) {
                             std::cerr << "Error while opening the file: " << path << " It won't be sent." << std::endl;
+                            paths_to_ignore.emplace_back(path);
                         }
                         break;
                     }
@@ -147,7 +148,8 @@ void Client::do_start_watcher() {
                                 read_file(relative_path, path, isFile, pt);
                                 action_type = 3;
                             } catch (...) {
-                                std::cerr << "Error while opening the file: " << path << "\n It won't be sent." << std::endl;
+                                std::cerr << "Error while opening the file: " << path << "\nIt won't be sent." << std::endl;
+                                paths_to_ignore.emplace_back(path);
                             }
                         } else {
                             std::cout << "Directory modified: " << relative_path << '\n';
@@ -155,17 +157,19 @@ void Client::do_start_watcher() {
                         break;
                     }
                     case FileStatus::erased : {
-                        pt.add("path", path);
-                        action_type = 4;
                         if (isFile) std::cout << "File erased: " << path << '\n';
                         else std::cout << "Directory erased: " << path << '\n';
+                        if (std::find(paths_to_ignore.begin(), paths_to_ignore.end(), path) == paths_to_ignore.end()) {
+                            pt.add("path", path);
+                            action_type = 4;
+                        }
                         break;
                     }
                     default :
                         std::cout << "Error! Unknown file status.\n";
                 }
                 //writing message
-                if (action_type <=4) {
+                if (action_type <= 4) {
                     std::stringstream file_stream;
                     boost::property_tree::write_json(file_stream, pt, false);
                     std::string file_string(file_stream.str());
@@ -185,7 +189,6 @@ void Client::read_file(const std::string& relative_path, const std::string& path
     do {
         try {
             inFile.open(relative_path, std::ios::in|std::ios::binary);
-            throw std::ios_base::failure("Error while opening");
         } catch (const std::ios_base::failure &err) {
             if (!reopen_done) {
                 std::this_thread::sleep_for(std::chrono::duration<int, std::milli>(2000));

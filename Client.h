@@ -21,6 +21,7 @@ class Client {
     boost::asio::streambuf buf;
     std::shared_ptr<DirectoryWatcher> dw_ptr;
     std::queue<Message> write_queue_c;
+    std::vector<std::string> paths_to_ignore;
     Credentials cred;
     std::thread input_reader;
     std::thread directoryWatcher;
