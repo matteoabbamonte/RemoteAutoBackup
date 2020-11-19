@@ -28,7 +28,7 @@ void Client::do_read_body() {
             buf.consume(length);
             Message msg;
             *msg.get_msg_ptr() = str;
-            msg.get_msg_ptr()->resize(length);
+            //msg.get_msg_ptr()->resize(length);
             handle_status(msg);
             do_read_body();
         } else {
@@ -40,7 +40,6 @@ void Client::do_read_body() {
 
 void Client::do_write() {
     std::cout << "Writing message..." << std::endl;
-    std::string str(*write_queue_c.front().get_msg_ptr());
     boost::asio::async_write(socket_, boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
             [this](boost::system::error_code ec, std::size_t /*length*/) {
                 if (!ec) {
@@ -64,7 +63,7 @@ void Client::get_credentials() {
     try {
         std::unique_lock ul(m);
         do_start_input_reader();
-        cv.wait(ul);
+        cv.wait(ul, [this](){return !cred.username.empty() && !cred.password.empty();});
         Message login_message;
         login_message.put_credentials(cred.username, cred.password);
         enqueue_msg(login_message);
@@ -89,6 +88,7 @@ void Client::do_start_input_reader() {
         bool cred_done = false;
         std::cout << "Insert username: ";
         while (std::cin >> input) {
+            if (!std::cin) close();
             if (cred_done) {
                 if (input == "exit") {
                     if (*running) close();

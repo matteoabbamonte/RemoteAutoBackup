@@ -22,10 +22,14 @@ std::shared_ptr<std::string> Message::get_msg_ptr() {
 }
 
 void Message::decode_message() {
-    std::stringstream stream;
-    stream << (*msg_ptr);
-    std::cout << (*msg_ptr) << std::endl;
-    read_json(stream, pt);
+    try {
+        std::stringstream stream;
+        stream << (*msg_ptr);
+        std::cout << (*msg_ptr) << std::endl;
+        read_json(stream, pt);
+    } catch (const boost::property_tree::ptree_error &err) {
+        throw;
+    }
 }
 
 int Message::get_header() {
@@ -37,11 +41,15 @@ std::string Message::get_data() {
 }
 
 std::tuple<std::string, std::string> Message::get_credentials() {
-    auto credentials_str = pt.get<std::string>("data");
-    int separator_pos = credentials_str.find("||");
-    auto username = credentials_str.substr(0, separator_pos);
-    auto password = credentials_str.substr(separator_pos+2);
-    return std::make_tuple(username, password);
+    try {
+        auto credentials_str = pt.get<std::string>("data");
+        int separator_pos = credentials_str.find("||");
+        auto username = credentials_str.substr(0, separator_pos);
+        auto password = credentials_str.substr(separator_pos+2);
+        return std::make_tuple(username, password);
+    } catch (const boost::property_tree::ptree_error &err) {
+        throw;
+    }
 }
 
 void Message::put_credentials(const std::string& username, const std::string& password) {
