@@ -58,7 +58,7 @@ class Client {
 
     void handle_synch();
 
-    bool handle_status(Message msg);
+    void handle_status(Message msg);
 
     void read_file(const std::string& relative_path, const std::string& path, bool isFile, boost::property_tree::ptree& pt);
 

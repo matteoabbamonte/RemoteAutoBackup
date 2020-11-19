@@ -6,11 +6,15 @@ Message::Message() {
 }
 
 void Message::zip_message() {
-    std::stringstream message_stream;
-    boost::property_tree::json_parser::write_json(message_stream, pt);
-    std::string message_string(message_stream.str());
-    msg_ptr = std::make_shared<std::string>(message_string);
-    msg_ptr->resize(message_string.size());
+    try {
+        std::stringstream message_stream;
+        boost::property_tree::json_parser::write_json(message_stream, pt);
+        std::string message_string(message_stream.str());
+        msg_ptr = std::make_shared<std::string>(message_string);
+        msg_ptr->resize(message_string.size());
+    } catch (const boost::property_tree::ptree_error &err) {
+        throw;
+    }
 }
 
 std::shared_ptr<std::string> Message::get_msg_ptr() {
@@ -41,8 +45,12 @@ std::tuple<std::string, std::string> Message::get_credentials() {
 }
 
 void Message::put_credentials(const std::string& username, const std::string& password) {
-    std::string user_pass = std::string(username) + std::string("||") + std::string(password);
-    encode_message(0, user_pass);
+    try {
+        std::string user_pass = std::string(username) + std::string("||") + std::string(password);
+        encode_message(0, user_pass);
+    } catch (const boost::property_tree::ptree_error &err) {
+        throw;
+    }
 }
 
 void Message::clear() {
@@ -50,9 +58,13 @@ void Message::clear() {
 }
 
 void Message::encode_message(int header, std::string& data) {
-    pt.add("header", header);
-    pt.add("data", data);
-    zip_message();
+    try {
+        pt.add("header", header);
+        pt.add("data", data);
+        zip_message();
+    } catch (const boost::property_tree::ptree_error &err) {
+        throw;
+    }
 }
 
 

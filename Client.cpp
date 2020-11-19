@@ -29,7 +29,8 @@ void Client::do_read_body() {
             Message msg;
             *msg.get_msg_ptr() = str;
             msg.get_msg_ptr()->resize(length);
-            if (handle_status(msg)) do_read_body();
+            handle_status(msg);
+            do_read_body();
         } else {
             *watching = false;
             if (*running) handle_reading_failures();
@@ -60,12 +61,17 @@ void Client::enqueue_msg(const Message &msg) {
 }
 
 void Client::get_credentials() {
-    std::unique_lock ul(m);
-    do_start_input_reader();
-    cv.wait(ul);
-    Message login_message;
-    login_message.put_credentials(cred.username, cred.password);
-    enqueue_msg(login_message);
+    try {
+        std::unique_lock ul(m);
+        do_start_input_reader();
+        cv.wait(ul);
+        Message login_message;
+        login_message.put_credentials(cred.username, cred.password);
+        enqueue_msg(login_message);
+    } catch (const boost::property_tree::ptree_error &err) {
+        std::cerr << "Error while completing login procedure. ";
+        close();
+    }
 }
 
 void Client::set_username(std::string &user) {
@@ -170,12 +176,18 @@ void Client::do_start_watcher() {
                 }
                 //writing message
                 if (action_type <= 4) {
-                    std::stringstream file_stream;
-                    boost::property_tree::write_json(file_stream, pt, false);
-                    std::string file_string(file_stream.str());
-                    Message write_msg;
-                    write_msg.encode_message(action_type, file_string);
-                    enqueue_msg(write_msg);
+                    try {
+                        std::stringstream file_stream;
+                        boost::property_tree::write_json(file_stream, pt, false);
+                        std::string file_string(file_stream.str());
+                        Message write_msg;
+                        write_msg.encode_message(action_type, file_string);
+                        enqueue_msg(write_msg);
+                    } catch (const boost::property_tree::ptree_error &err) {
+                        paths_to_ignore.emplace_back(path);
+                        std::cerr << "Error while executing the action on the file " << path << ", it won't be sent. " << std::endl;
+                        std::cerr << "If you want to resynchronize write \'exit\'." << std::endl;
+                    }
                 }
             }
         });
@@ -250,11 +262,16 @@ void Client::handle_connection_failures() {
 void Client::handle_reading_failures() {
     boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {
         if (!ec) {
-            Message login_message;
-            login_message.put_credentials(cred.username, cred.password);
-            enqueue_msg(login_message);
-            do_start_watcher();
-            do_read_body();
+            try {
+                Message login_message;
+                login_message.put_credentials(cred.username, cred.password);
+                enqueue_msg(login_message);
+                do_start_watcher();
+                do_read_body();
+            } catch (const boost::property_tree::ptree_error &err) {
+                std::cerr << "Error while reconnecting. ";
+                close();
+            }
         } else {
             auto wait = std::chrono::duration_cast<std::chrono::seconds>(delay);
             std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
@@ -271,103 +288,107 @@ void Client::handle_reading_failures() {
 }
 
 void Client::handle_synch() {
-    boost::property_tree::ptree pt;
-    for (const auto& tuple : DirectoryWatcher::paths_) {
-        std::string path(tuple.first);
-        path = path.substr(path_to_watch.size()+1);
-        if (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");
-        pt.add(path, tuple.second.hash);
+    try {
+        boost::property_tree::ptree pt;
+        for (const auto& tuple : DirectoryWatcher::paths_) {
+            std::string path(tuple.first);
+            path = path.substr(path_to_watch.size()+1);
+            if (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");
+            pt.add(path, tuple.second.hash);
+        }
+        std::stringstream map_stream;
+        boost::property_tree::write_json(map_stream, pt);
+        std::string map_string = map_stream.str();
+        Message write_msg;
+        write_msg.encode_message(1, map_string);
+        enqueue_msg(write_msg);
+    } catch (const boost::property_tree::ptree_error &err) {
+        throw;
     }
-    std::stringstream map_stream;
-    boost::property_tree::write_json(map_stream, pt);
-    std::string map_string = map_stream.str();
-    Message write_msg;
-    write_msg.encode_message(1, map_string);
-    enqueue_msg(write_msg);
 }
 
-bool Client::handle_status(Message msg) {
-    msg.decode_message();
-    auto status = static_cast<status_type>(msg.get_header()); //change header to status
-    std::string data = msg.get_data();
-    msg.clear();
-    bool return_value = true;
-    switch (status) {
-        case status_type::in_need : {
-            std::string separator = "||";
-            size_t pos = 0;
-            std::string path;
-            while ((pos = data.find(separator)) != std::string::npos) {
-                path = data.substr(0, pos);
-                data.erase(0, pos + separator.length());
-                std::string relative_path = path;
-                if (relative_path.find(':') < relative_path.size())
-                    relative_path.replace(relative_path.find(':'), 1, ".");
-                std::ifstream inFile;
-                relative_path = std::string(path_to_watch + "/") + relative_path;
-                inFile.open(relative_path, std::ios::in|std::ios::binary);
-                std::vector<BYTE> buffer_vec;
-                char ch;
-                while (inFile.get(ch)) buffer_vec.emplace_back(ch);
-                std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
-                boost::property_tree::ptree pt;
-                pt.add("path", path);
-                pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
-                pt.add("isFile", DirectoryWatcher::paths_[relative_path].isFile);
-                pt.add("content", encodedData);
-                //writing message
-                std::stringstream file_stream;
-                boost::property_tree::write_json(file_stream, pt, false);
-                std::string file_string(file_stream.str());
-                Message write_msg;
-                write_msg.encode_message(2, file_string);
-                enqueue_msg(write_msg);
+void Client::handle_status(Message msg) {
+    try {
+        msg.decode_message();
+        auto status = static_cast<status_type>(msg.get_header()); //change header to status
+        std::string data = msg.get_data();
+        msg.clear();
+        switch (status) {
+            case status_type::in_need : {
+                std::string separator = "||";
+                size_t pos = 0;
+                std::string path;
+                while ((pos = data.find(separator)) != std::string::npos) {
+                    path = data.substr(0, pos);
+                    data.erase(0, pos + separator.length());
+                    std::string relative_path = path;
+                    if (relative_path.find(':') < relative_path.size())
+                        relative_path.replace(relative_path.find(':'), 1, ".");
+                    std::ifstream inFile;
+                    relative_path = std::string(path_to_watch + "/") + relative_path;
+                    inFile.open(relative_path, std::ios::in|std::ios::binary);
+                    std::vector<BYTE> buffer_vec;
+                    char ch;
+                    while (inFile.get(ch)) buffer_vec.emplace_back(ch);
+                    std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
+                    boost::property_tree::ptree pt;
+                    pt.add("path", path);
+                    pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
+                    pt.add("isFile", DirectoryWatcher::paths_[relative_path].isFile);
+                    pt.add("content", encodedData);
+                    //writing message
+                    std::stringstream file_stream;
+                    boost::property_tree::write_json(file_stream, pt, false);
+                    std::string file_string(file_stream.str());
+                    Message write_msg;
+                    write_msg.encode_message(2, file_string);
+                    enqueue_msg(write_msg);
+                }
+                break;
             }
-            break;
-        }
-        case status_type::unauthorized : {
-            std::cerr << "Unauthorized. ";
-            return_value = false;
-            close();
-            break;
-        }
-        case status_type::service_unavailable : {
-            auto wait = std::chrono::duration_cast<std::chrono::seconds>(delay);
-            std::cout << "Database unavailable, retrying in " << wait.count() << " sec" << std::endl;
-            std::this_thread::sleep_for(delay);
-            Message last_message;
-            if (data == "login") {
-                last_message.put_credentials(cred.username, cred.password);
-                enqueue_msg(last_message);
-            } else {
-                handle_synch();
-            }
-            if (wait.count() >= 20) {
-                std::cerr << "Database unavailable. ";
-                return_value = false;
+            case status_type::unauthorized : {
+                std::cerr << "Unauthorized. ";
                 close();
-            } else {
-                delay *= 2;
+                break;
             }
-            break;
+            case status_type::service_unavailable : {
+                auto wait = std::chrono::duration_cast<std::chrono::seconds>(delay);
+                std::cout << "Database unavailable, retrying in " << wait.count() << " sec" << std::endl;
+                std::this_thread::sleep_for(delay);
+                Message last_message;
+                if (data == "login") {
+                    last_message.put_credentials(cred.username, cred.password);
+                    enqueue_msg(last_message);
+                } else {
+                    handle_synch();
+                }
+                if (wait.count() >= 20) {
+                    std::cerr << "Database unavailable. ";
+                    close();
+                } else {
+                    delay *= 2;
+                }
+                break;
+            }
+            case status_type::wrong_action : {
+                std::cerr << "Wrong action. ";
+                close();
+                break;
+            }
+            case status_type::authorized : {
+                std::cout << "Authorized." << std::endl;
+                do_start_watcher();
+                handle_synch();
+                break;
+            }
+            default : {
+                std::cout << "Default status." << std::endl;
+            }
         }
-        case status_type::wrong_action : {
-            std::cerr << "Wrong action. ";
-            close();
-            return_value = false;
-            break;
-        }
-        case status_type::authorized : {
-            std::cout << "Authorized." << std::endl;
-            do_start_watcher();
-            handle_synch();
-            break;
-        }
-        default : {
-            std::cout << "Default status." << std::endl;
-        }
+    } catch (const boost::property_tree::ptree_error &err) {
+        std::cerr << "Error while communicating with server, closing session. " << std::endl;
+        close();
     }
-    return return_value;
 }
 
 void Client::close() {
