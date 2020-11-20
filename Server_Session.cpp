@@ -36,7 +36,7 @@ void Server_Session::do_read_body() {
             do_read_body();
         } else {
             if (!username.empty()) std::cout << "Client " << username << " disconnected, closing session..." << std::endl;
-            else std::cout << "Error during login phase, closing session..." << std::endl;
+            else std::cerr << "Error during login phase, closing session..." << std::endl;
         }
     });
 }
@@ -84,144 +84,149 @@ void Server_Session::enqueue_msg(const Message &msg) {
 }
 
 void Server_Session::request_handler(Message msg) {
-    msg.decode_message();
-    auto header = static_cast<action_type>(msg.get_header());
-    std::string data = msg.get_data();
-    int status_type;
-    std::string response_str;
     Message response_msg;
-    if (header != action_type::login && username.empty()) {
-        status_type = 6;
-        response_str = std::string("Login needed");
-    } else {
-        switch (header) {
-            case (action_type::login) : {
-                auto credentials = msg.get_credentials();
-                auto count_avail = db.check_database(std::get<0>(credentials), std::get<1>(credentials));
-                if (std::get<1>(count_avail)) {
-                    if (std::get<0>(count_avail)) {
-                        username = std::get<0>(credentials);
-                        status_type = 0;
-                        response_str = std::string("Access granted");
-                    } else {
-                        status_type = 6;
-                        response_str = std::string("Access denied, try again");
-                    }
-                } else {
-                    status_type = 7;
-                    response_str = std::string("login");
-                }
-                break;
-            }
-            case (action_type::synchronize) : {
-                boost::property_tree::ptree pt;
-                std::stringstream data_stream;
-                data_stream << data;
-                boost::property_tree::json_parser::read_json(data_stream, pt);
-                auto found_avail = db.get_paths(paths, username);
-                if (std::get<1>(found_avail)) {
-                    // vede se il database risponde
-                    if (std::get<0>(found_avail)) {
-                        // deve confrontare le mappe e rispondere con in_need o no_need
-                        Diff_vect diffs = compare_paths(pt);
-                        if (diffs.toAdd.empty()) {
-                            status_type = 4;
-                            response_str = "No need";
+    std::string response_str;
+    int status_type = 999;
+    try {
+        msg.decode_message();
+        auto header = static_cast<action_type>(msg.get_header());
+        std::string data = msg.get_data();
+        if (header != action_type::login && username.empty()) {
+            status_type = 6;
+            response_str = std::string("Login needed");
+        } else {
+            switch (header) {
+                case (action_type::login) : {
+                    auto credentials = msg.get_credentials();
+                    auto count_avail = db.check_database(std::get<0>(credentials), std::get<1>(credentials));
+                    if (std::get<1>(count_avail)) {
+                        if (std::get<0>(count_avail)) {
+                            username = std::get<0>(credentials);
+                            status_type = 0;
+                            response_str = std::string("Access granted");
                         } else {
-                            status_type = 5;
-                            for (const auto &path : diffs.toAdd) response_str += path + "||";
-                        }
-                        if (!diffs.toRem.empty()) {
-                            for (const auto &path : diffs.toRem) do_remove(path);
+                            status_type = 6;
+                            response_str = std::string("Access denied, try again");
                         }
                     } else {
-                        // deve rispondere in_need con tutta la mappa ricevuta come dati
-                        status_type = 5;
-                        for (const auto &path : pt) response_str += path.first + "||";
+                        status_type = 7;
+                        response_str = std::string("login");
                     }
-                } else {
-                    status_type = 7;
-                    response_str = std::string("synchronize");
+                    break;
                 }
-                break;
-            }
-            case (action_type::create) : {
-                boost::property_tree::ptree pt;
-                std::stringstream data_stream;
-                data_stream << data;
-                boost::property_tree::json_parser::read_json(data_stream, pt);
-                auto path = pt.get<std::string>("path");
-                auto hash = pt.get<std::size_t>("hash");
-                bool isFile = pt.get<bool>("isFile");
-                update_paths(path, hash);
-                std::string directory = std::string("../../server/") + std::string(username);
-                if (!boost::filesystem::is_directory(directory)) boost::filesystem::create_directory(directory);
-                std::string relative_path = directory + std::string("/") + std::string(path);
-                if (!isFile) {
-                    // create a directory with the specified name
-                    boost::filesystem::create_directory(relative_path);
-                } else {
-                    // create a file with the specified name
-                    auto content = pt.get<std::string>("content");
-                    std::vector<BYTE> decodedData = base64_decode(content);
-                    if (relative_path.find(':') < relative_path.size())
-                        relative_path.replace(relative_path.find(':'), 1, ".");
-                    boost::filesystem::ofstream outFile(relative_path.data());
-                    if (!content.empty()) {
-                        outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
-                        outFile.close();
+                case (action_type::synchronize) : {
+                    boost::property_tree::ptree pt;
+                    std::stringstream data_stream;
+                    data_stream << data;
+                    boost::property_tree::json_parser::read_json(data_stream, pt);
+                    throw boost::property_tree::ptree_error("err");
+                    auto found_avail = db.get_paths(paths, username);
+                    if (std::get<1>(found_avail)) {                 /* If the database is active */
+                        if (std::get<0>(found_avail)) {             /* It compares the maps and answers either with */
+                            Diff_vect diffs = compare_paths(pt);    /* in_need o no_need */
+                            if (diffs.toAdd.empty()) {
+                                status_type = 4;
+                                response_str = "No need";
+                            } else {
+                                status_type = 5;
+                                for (const auto &path : diffs.toAdd) response_str += path + "||";
+                            }
+                            if (!diffs.toRem.empty()) {
+                                for (const auto &path : diffs.toRem) do_remove(path);
+                            }
+                        } else {                                        /* It answers being in_need with the whole map */
+                            status_type = 5;
+                            for (const auto &path : pt) response_str += path.first + "||";
+                        }
+                    } else {
+                        status_type = 7;
+                        response_str = std::string("synchronize");
                     }
+                    break;
                 }
-                status_type = 1;
-                response_str = std::string(path) + std::string(" created");
-                break;
-            }
-            case (action_type::update) : {
-                boost::property_tree::ptree pt;
-                std::stringstream data_stream;
-                data_stream << data;
-                boost::property_tree::json_parser::read_json(data_stream, pt);
-                auto path = pt.get<std::string>("path");
-                auto hash = pt.get<std::size_t>("hash");
-                bool isFile = pt.get<bool>("isFile");
-                update_paths(path, hash);
-                if (isFile) {
-                    auto content = pt.get<std::string>("content");
-                    std::vector<BYTE> decodedData = base64_decode(content);
+                case (action_type::create) : {
+                    boost::property_tree::ptree pt;
+                    std::stringstream data_stream;
+                    data_stream << data;
+                    boost::property_tree::json_parser::read_json(data_stream, pt);
+                    auto path = pt.get<std::string>("path");
+                    auto hash = pt.get<std::size_t>("hash");
+                    bool isFile = pt.get<bool>("isFile");
+                    update_paths(path, hash);
                     std::string directory = std::string("../../server/") + std::string(username);
+                    if (!boost::filesystem::is_directory(directory)) boost::filesystem::create_directory(directory);
                     std::string relative_path = directory + std::string("/") + std::string(path);
-                    if (relative_path.find(':') < relative_path.size())
-                        relative_path.replace(relative_path.find(':'), 1, ".");
-                    boost::filesystem::remove_all(relative_path.data());
-                    boost::filesystem::ofstream outFile(relative_path.data());
-                    if (!content.empty()) {
-                        outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
-                        outFile.close();
+                    if (!isFile) {          /* create a directory with the specified name */
+                        boost::filesystem::create_directory(relative_path);
+                    } else {                 /* create a file with the specified name */
+                        auto content = pt.get<std::string>("content");
+                        std::vector<BYTE> decodedData = base64_decode(content);
+                        if (relative_path.find(':') < relative_path.size())
+                            relative_path.replace(relative_path.find(':'), 1, ".");
+                        boost::filesystem::ofstream outFile(relative_path.data());
+                        if (!content.empty()) {
+                            outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
+                            outFile.close();
+                        }
                     }
+                    status_type = 1;
+                    response_str = std::string(path) + std::string(" created");
+                    break;
                 }
-                status_type = 2;
-                response_str = std::string(path) + std::string(" updated");
-                break;
-            }
-            case (action_type::erase) : {
-                boost::property_tree::ptree pt;
-                std::stringstream data_stream;
-                data_stream << data;
-                boost::property_tree::json_parser::read_json(data_stream, pt);
-                auto path = pt.get<std::string>("path");
-                do_remove(path);
-                status_type = 3;
-                response_str = std::string(path) + std::string(" erased");
-                break;
-            }
-            default : {
-                status_type = 8;
-                response_str = std::string("Wrong action type");
+                case (action_type::update) : {
+                    boost::property_tree::ptree pt;
+                    std::stringstream data_stream;
+                    data_stream << data;
+                    boost::property_tree::json_parser::read_json(data_stream, pt);
+                    auto path = pt.get<std::string>("path");
+                    auto hash = pt.get<std::size_t>("hash");
+                    bool isFile = pt.get<bool>("isFile");
+                    update_paths(path, hash);
+                    if (isFile) {
+                        auto content = pt.get<std::string>("content");
+                        std::vector<BYTE> decodedData = base64_decode(content);
+                        std::string directory = std::string("../../server/") + std::string(username);
+                        std::string relative_path = directory + std::string("/") + std::string(path);
+                        if (relative_path.find(':') < relative_path.size())
+                            relative_path.replace(relative_path.find(':'), 1, ".");
+                        boost::filesystem::remove_all(relative_path.data());
+                        boost::filesystem::ofstream outFile(relative_path.data());
+                        if (!content.empty()) {
+                            outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
+                            outFile.close();
+                        }
+                    }
+                    status_type = 2;
+                    response_str = std::string(path) + std::string(" updated");
+                    break;
+                }
+                case (action_type::erase) : {
+                    boost::property_tree::ptree pt;
+                    std::stringstream data_stream;
+                    data_stream << data;
+                    boost::property_tree::json_parser::read_json(data_stream, pt);
+                    auto path = pt.get<std::string>("path");
+                    do_remove(path);
+                    status_type = 3;
+                    response_str = std::string(path) + std::string(" erased");
+                    break;
+                }
+                default : {
+                    status_type = 8;
+                    response_str = std::string("Wrong action type");
+                }
             }
         }
+        if (status_type <= 8) {
+            response_msg.encode_message(status_type, response_str);
+            enqueue_msg(response_msg);
+        }
+    } catch (const boost::property_tree::ptree_error &err) {
+        response_str = std::string("Communication error, try again");
+        response_msg.encode_message(7, response_str);
+        enqueue_msg(response_msg);
+        std::cerr << "Error while communicating with client, closing session..." << std::endl;
     }
-    response_msg.encode_message(status_type, response_str);
-    enqueue_msg(response_msg);
 }
 
 Server_Session::~Server_Session() {

@@ -3,12 +3,14 @@
 #include <iostream>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
-#include <sqlite3.h>
 #include <boost/filesystem.hpp>
+#include <boost/property_tree/exceptions.hpp>
 #include <queue>
-#include "Message.h"
-#include "Headers.h"
+#include <sqlite3.h>
 #include "Database_Connection.h"
+#include "Headers.h"
+#include "Message.h"
+
 
 #define delimiter "\n}\n"
 

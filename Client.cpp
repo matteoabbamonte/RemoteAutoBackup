@@ -132,7 +132,7 @@ void Client::do_start_watcher() {
                 std::string relative_path = path;
                 path = path.substr(path_to_watch.size() + 1);
                 if (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");
-                switch(status) {
+                switch (status) {
                     case FileStatus::created : {
                         if (isFile) std::cout << "File created: " << path << '\n';
                         else std::cout << "Directory created: " << path << '\n';
@@ -345,6 +345,7 @@ void Client::handle_status(Message msg) {
                 break;
             }
             case status_type::unauthorized : {
+                //std::cerr << data << std::endl;
                 std::cerr << "Unauthorized. ";
                 close();
                 break;
