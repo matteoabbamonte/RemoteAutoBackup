@@ -165,9 +165,14 @@ void Client::do_start_watcher() {
                     case FileStatus::erased : {
                         if (isFile) std::cout << "File erased: " << path << '\n';
                         else std::cout << "Directory erased: " << path << '\n';
-                        if (std::find(paths_to_ignore.begin(), paths_to_ignore.end(), path) == paths_to_ignore.end()) {
-                            pt.add("path", path);
-                            action_type = 4;
+                        try {
+                            if (std::find(paths_to_ignore.begin(), paths_to_ignore.end(), path) == paths_to_ignore.end()) {
+                                pt.add("path", path);
+                                action_type = 4;
+                            }
+                        } catch (const boost::property_tree::ptree_error &err) {
+                            std::cerr << "Error while executing the action on the file " << path << ", closing session. " << std::endl;
+                            close();
                         }
                         break;
                     }
@@ -242,6 +247,7 @@ void Client::handle_connection_failures() {
                 std::cerr << "Do you want to reconnect? (y/n): ";
                 std::string input;
                 while (std::cin >> input) {
+                    if (!std::cin) close();
                     if (input == "n") {
                         *stop = true;
                         break;
@@ -326,16 +332,8 @@ void Client::handle_status(Message msg) {
                         relative_path.replace(relative_path.find(':'), 1, ".");
                     std::ifstream inFile;
                     relative_path = std::string(path_to_watch + "/") + relative_path;
-                    inFile.open(relative_path, std::ios::in|std::ios::binary);
-                    std::vector<BYTE> buffer_vec;
-                    char ch;
-                    while (inFile.get(ch)) buffer_vec.emplace_back(ch);
-                    std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
                     boost::property_tree::ptree pt;
-                    pt.add("path", path);
-                    pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
-                    pt.add("isFile", DirectoryWatcher::paths_[relative_path].isFile);
-                    pt.add("content", encodedData);
+                    read_file(relative_path, path, DirectoryWatcher::paths_[relative_path].isFile, pt);
                     //writing message
                     std::stringstream file_stream;
                     boost::property_tree::write_json(file_stream, pt, false);
@@ -387,6 +385,9 @@ void Client::handle_status(Message msg) {
         }
     } catch (const boost::property_tree::ptree_error &err) {
         std::cerr << "Error while communicating with server, closing session. " << std::endl;
+        close();
+    } catch (const std::ios_base::failure &err) {
+        std::cerr << "Error while synchronizing with server, closing session. " << std::endl;
         close();
     }
 }
