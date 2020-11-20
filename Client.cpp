@@ -1,9 +1,11 @@
 #include "Client.h"
+
+#include <utility>
 #define delimiter "\n}\n"
 
-Client::Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints,
+Client::Client(boost::asio::io_context& io_context, tcp::resolver::results_type  endpoints,
         std::shared_ptr<bool> &running, std::string path_to_watch, DirectoryWatcher &dw, std::shared_ptr<bool> &stop, std::shared_ptr<bool> &watching)
-        : io_context_(io_context), socket_(io_context), endpoints(endpoints), running(running),
+        : io_context_(io_context), socket_(io_context), endpoints(std::move(endpoints)), running(running),
         path_to_watch(path_to_watch), dw_ptr(std::make_shared<DirectoryWatcher>(dw)), stop(stop), watching(watching), delay(5000) {
             do_connect();
 }
@@ -131,7 +133,7 @@ void Client::do_start_watcher() {
                 int action_type = 999;
                 std::string relative_path = path;
                 path = path.substr(path_to_watch.size() + 1);
-                if (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");
+                while (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");
                 switch (status) {
                     case FileStatus::created : {
                         if (isFile) std::cout << "File created: " << path << '\n';
@@ -146,7 +148,7 @@ void Client::do_start_watcher() {
                         break;
                     }
                     case FileStatus::modified : {
-                        if (relative_path.find(':') < relative_path.size())
+                        while (relative_path.find(':') < relative_path.size())
                             relative_path.replace(relative_path.find(':'), 1, ".");
                         if (isFile) {
                             std::cout << "File modified: " << relative_path << '\n';
@@ -299,7 +301,8 @@ void Client::handle_synch() {
         for (const auto& tuple : DirectoryWatcher::paths_) {
             std::string path(tuple.first);
             path = path.substr(path_to_watch.size()+1);
-            if (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");
+            while (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");
+            std::cout << path << std::endl;
             pt.add(path, tuple.second.hash);
         }
         std::stringstream map_stream;
@@ -328,7 +331,7 @@ void Client::handle_status(Message msg) {
                     path = data.substr(0, pos);
                     data.erase(0, pos + separator.length());
                     std::string relative_path = path;
-                    if (relative_path.find(':') < relative_path.size())
+                    while (relative_path.find(':') < relative_path.size())
                         relative_path.replace(relative_path.find(':'), 1, ".");
                     std::ifstream inFile;
                     relative_path = std::string(path_to_watch + "/") + relative_path;

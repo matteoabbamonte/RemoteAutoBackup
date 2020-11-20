@@ -11,7 +11,7 @@ void Server_Session::do_remove(const std::string& path) {
     paths.erase(path);
     std::string directory = std::string("../../server/") + std::string(username);
     std::string relative_path = directory + std::string("/") + std::string(path);
-    if (relative_path.find(':') < relative_path.size())
+    while (relative_path.find(':') < relative_path.size())
         relative_path.replace(relative_path.find(':'), 1, ".");
     boost::filesystem::remove_all(relative_path.data());
 }
@@ -119,7 +119,6 @@ void Server_Session::request_handler(Message msg) {
                     std::stringstream data_stream;
                     data_stream << data;
                     boost::property_tree::json_parser::read_json(data_stream, pt);
-                    throw boost::property_tree::ptree_error("err");
                     auto found_avail = db.get_paths(paths, username);
                     if (std::get<1>(found_avail)) {                 /* If the database is active */
                         if (std::get<0>(found_avail)) {             /* It compares the maps and answers either with */
@@ -161,7 +160,7 @@ void Server_Session::request_handler(Message msg) {
                     } else {                 /* create a file with the specified name */
                         auto content = pt.get<std::string>("content");
                         std::vector<BYTE> decodedData = base64_decode(content);
-                        if (relative_path.find(':') < relative_path.size())
+                        while (relative_path.find(':') < relative_path.size())
                             relative_path.replace(relative_path.find(':'), 1, ".");
                         boost::filesystem::ofstream outFile(relative_path.data());
                         if (!content.empty()) {
@@ -187,7 +186,7 @@ void Server_Session::request_handler(Message msg) {
                         std::vector<BYTE> decodedData = base64_decode(content);
                         std::string directory = std::string("../../server/") + std::string(username);
                         std::string relative_path = directory + std::string("/") + std::string(path);
-                        if (relative_path.find(':') < relative_path.size())
+                        while (relative_path.find(':') < relative_path.size())
                             relative_path.replace(relative_path.find(':'), 1, ".");
                         boost::filesystem::remove_all(relative_path.data());
                         boost::filesystem::ofstream outFile(relative_path.data());

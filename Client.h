@@ -65,7 +65,7 @@ class Client {
     void close();
 
 public:
-    Client(boost::asio::io_context& io_context, const tcp::resolver::results_type& endpoints,
+    Client(boost::asio::io_context& io_context, tcp::resolver::results_type  endpoints,
            std::shared_ptr<bool> &running, std::string path_to_watch, DirectoryWatcher &dw, std::shared_ptr<bool> &stop, std::shared_ptr<bool> &watching);
 
     ~Client();
