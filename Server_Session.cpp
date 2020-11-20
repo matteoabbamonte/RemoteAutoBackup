@@ -222,10 +222,10 @@ void Server_Session::request_handler(Message msg) {
             enqueue_msg(response_msg);
         }
     } catch (const boost::property_tree::ptree_error &err) {
-        response_str = std::string("Communication error, try again");
+        response_str = std::string("Communication error");
         response_msg.encode_message(7, response_str);
         enqueue_msg(response_msg);
-        std::cerr << "Error while communicating with client, closing session..." << std::endl;
+        std::cerr << "Server is not working properly." << std::endl;
     }
 }
 

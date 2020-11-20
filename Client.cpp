@@ -352,17 +352,17 @@ void Client::handle_status(Message msg) {
             }
             case status_type::service_unavailable : {
                 auto wait = std::chrono::duration_cast<std::chrono::seconds>(delay);
-                std::cout << "Database unavailable, retrying in " << wait.count() << " sec" << std::endl;
+                std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
                 std::this_thread::sleep_for(delay);
                 Message last_message;
-                if (data == "login") {
+                if (data == "login" || data == "Communication error") {
                     last_message.put_credentials(cred.username, cred.password);
                     enqueue_msg(last_message);
                 } else {
                     handle_synch();
                 }
                 if (wait.count() >= 20) {
-                    std::cerr << "Database unavailable. ";
+                    std::cerr << "Server unavailable. ";
                     close();
                 } else {
                     delay *= 2;
