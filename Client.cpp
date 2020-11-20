@@ -319,7 +319,7 @@ void Client::handle_synch() {
 void Client::handle_status(Message msg) {
     try {
         msg.decode_message();
-        auto status = static_cast<status_type>(msg.get_header()); //change header to status
+        auto status = static_cast<status_type>(msg.get_header());   /* Change header to status */
         std::string data = msg.get_data();
         msg.clear();
         switch (status) {
@@ -337,7 +337,7 @@ void Client::handle_status(Message msg) {
                     relative_path = std::string(path_to_watch + "/") + relative_path;
                     boost::property_tree::ptree pt;
                     read_file(relative_path, path, DirectoryWatcher::paths_[relative_path].isFile, pt);
-                    //writing message
+                    /* Writing message */
                     std::stringstream file_stream;
                     boost::property_tree::write_json(file_stream, pt, false);
                     std::string file_string(file_stream.str());
@@ -348,7 +348,6 @@ void Client::handle_status(Message msg) {
                 break;
             }
             case status_type::unauthorized : {
-                //std::cerr << data << std::endl;
                 std::cerr << "Unauthorized. ";
                 close();
                 break;

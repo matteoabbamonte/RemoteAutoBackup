@@ -69,7 +69,7 @@ Diff_vect Server_Session::compare_paths(ptree &client_pt) {
             toAdd.emplace_back(entry.first);
         }
     }
-    std::vector<std::string> toRem; /* Scanning local map in search for deprecated elements */
+    std::vector<std::string> toRem;     /* Scanning local map in search for deprecated elements */
     for (auto &entry : paths) {
         auto it = client_pt.find(entry.first);
         if (it == client_pt.not_found()) toRem.emplace_back(entry.first);
@@ -155,7 +155,7 @@ void Server_Session::request_handler(Message msg) {
                     std::string directory = std::string("../../server/") + std::string(username);
                     if (!boost::filesystem::is_directory(directory)) boost::filesystem::create_directory(directory);
                     std::string relative_path = directory + std::string("/") + std::string(path);
-                    if (!isFile) {          /* create a directory with the specified name */
+                    if (!isFile) {           /* create a directory with the specified name */
                         boost::filesystem::create_directory(relative_path);
                     } else {                 /* create a file with the specified name */
                         auto content = pt.get<std::string>("content");

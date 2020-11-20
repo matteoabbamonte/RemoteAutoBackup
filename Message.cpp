@@ -47,7 +47,6 @@ std::tuple<std::string, std::string> Message::get_credentials() {
         auto username = credentials_str.substr(0, separator_pos);
         auto password = credentials_str.substr(separator_pos+2);
         return std::make_tuple(username, password);
-        //throw boost::property_tree::ptree_error ("err");
     } catch (const boost::property_tree::ptree_error &err) {
         throw;
     }
