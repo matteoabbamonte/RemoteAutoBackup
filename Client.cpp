@@ -58,6 +58,7 @@ void Client::do_write() {
 void Client::enqueue_msg(const Message &msg) {
     bool write_in_progress = !write_queue_c.empty();
     write_queue_c.push(msg);
+    std::cout << write_queue_c.front().get_msg_ptr() << std::endl;
     if (!write_in_progress) do_write();
 }
 
@@ -316,7 +317,7 @@ void Client::handle_synch() {
 }
 
 void Client::handle_status(Message msg) {
-    //try {
+    try {
         msg.decode_message();
         auto status = static_cast<status_type>(msg.get_header());   /* Change header to status */
         std::string data = msg.get_data();
@@ -385,13 +386,13 @@ void Client::handle_status(Message msg) {
                 std::cout << "Default status." << std::endl;
             }
         }
-    /*} catch (const boost::property_tree::ptree_error &err) {
+    } catch (const boost::property_tree::ptree_error &err) {
         std::cerr << "Error while communicating with server, closing session. " << std::endl;
         close();
     } catch (const std::ios_base::failure &err) {
         std::cerr << "Error while synchronizing with server, closing session. " << std::endl;
         close();
-    }*/
+    }
 }
 
 void Client::close() {
