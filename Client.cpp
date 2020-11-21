@@ -302,7 +302,6 @@ void Client::handle_synch() {
             std::string path(tuple.first);
             path = path.substr(path_to_watch.size()+1);
             while (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");
-            std::cout << path << std::endl;
             pt.add(path, tuple.second.hash);
         }
         std::stringstream map_stream;

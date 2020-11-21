@@ -155,13 +155,13 @@ void Server_Session::request_handler(Message msg) {
                     std::string directory = std::string("../../server/") + std::string(username);
                     if (!boost::filesystem::is_directory(directory)) boost::filesystem::create_directory(directory);
                     std::string relative_path = directory + std::string("/") + std::string(path);
+                    while (relative_path.find(':') < relative_path.size())
+                        relative_path.replace(relative_path.find(':'), 1, ".");
                     if (!isFile) {           /* create a directory with the specified name */
                         boost::filesystem::create_directory(relative_path);
                     } else {                 /* create a file with the specified name */
                         auto content = pt.get<std::string>("content");
                         std::vector<BYTE> decodedData = base64_decode(content);
-                        while (relative_path.find(':') < relative_path.size())
-                            relative_path.replace(relative_path.find(':'), 1, ".");
                         boost::filesystem::ofstream outFile(relative_path.data());
                         if (!content.empty()) {
                             outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
