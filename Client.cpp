@@ -30,7 +30,7 @@ void Client::do_read_body() {
             buf.consume(length);
             Message msg;
             *msg.get_msg_ptr() = str;
-            //msg.get_msg_ptr()->resize(length);
+            msg.get_msg_ptr()->resize(length);
             handle_status(msg);
             do_read_body();
         } else {
@@ -316,7 +316,7 @@ void Client::handle_synch() {
 }
 
 void Client::handle_status(Message msg) {
-    try {
+    //try {
         msg.decode_message();
         auto status = static_cast<status_type>(msg.get_header());   /* Change header to status */
         std::string data = msg.get_data();
@@ -385,13 +385,13 @@ void Client::handle_status(Message msg) {
                 std::cout << "Default status." << std::endl;
             }
         }
-    } catch (const boost::property_tree::ptree_error &err) {
+    /*} catch (const boost::property_tree::ptree_error &err) {
         std::cerr << "Error while communicating with server, closing session. " << std::endl;
         close();
     } catch (const std::ios_base::failure &err) {
         std::cerr << "Error while synchronizing with server, closing session. " << std::endl;
         close();
-    }
+    }*/
 }
 
 void Client::close() {
