@@ -18,6 +18,7 @@ struct RecPath {
 class DirectoryWatcher {
     std::shared_ptr<bool> watching;
     std::string path_to_watch;
+    std::mutex paths_mutex;
     std::chrono::duration<int, std::milli> delay;
 
     //private methods
@@ -31,6 +32,10 @@ class DirectoryWatcher {
 
 public:
     inline static std::map<std::string, RecPath> paths_;
+
+    std::map<std::string, RecPath>& getPaths();
+
+    RecPath getNode(std::string path);
 
     // Keep a record of files from the base directory and their last modification time
     DirectoryWatcher(std::string path_to_watch, std::chrono::duration<int, std::milli> delay, std::shared_ptr<bool> &watching);

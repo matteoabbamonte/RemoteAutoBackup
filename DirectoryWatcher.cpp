@@ -2,6 +2,7 @@
 
 DirectoryWatcher::DirectoryWatcher(std::string path_to_watch, std::chrono::duration<int, std::milli> delay, std::shared_ptr<bool> &watching)
         : path_to_watch{std::move(path_to_watch)}, delay{delay}, watching(watching) {
+    std::lock_guard lg(paths_mutex);
     for (boost::filesystem::directory_entry &element : boost::filesystem::recursive_directory_iterator(this->path_to_watch)) {
         //if (element.path().filename().string().find(".",0) != 0) {
             auto lats_time_mod = boost::filesystem::last_write_time(element);
@@ -25,6 +26,7 @@ size_t DirectoryWatcher::dirFile_Size(boost::filesystem::directory_entry& elemen
 void DirectoryWatcher::start(std::function<void (std::string, FileStatus, bool)> action) {
     while (*watching) {
         std::this_thread::sleep_for(delay);
+        std::lock_guard lg(paths_mutex);
         auto it = paths_.begin();
         while (it != paths_.end()) {
             if (!boost::filesystem::exists(it->first)) {
@@ -53,6 +55,16 @@ size_t DirectoryWatcher::make_hash(boost::filesystem::directory_entry& element) 
     std::hash<std::string> loc_hash;
     std::string loc_string = element.path().string() + std::to_string(lats_time_mod) + std::to_string(dirFile_Size(element));
     return loc_hash(loc_string);
+}
+
+std::map<std::string, RecPath> &DirectoryWatcher::getPaths() {
+    std::lock_guard lg(paths_mutex);
+    return paths_;
+}
+
+RecPath DirectoryWatcher::getNode(std::string path) {
+    //std::lock_guard lg(paths_mutex);
+    return paths_[path];
 }
 
 

@@ -32,6 +32,7 @@ class Client {
     std::shared_ptr<bool> stop;
     std::shared_ptr<bool> watching;
     std::mutex m;
+    std::mutex wq_m;
     std::condition_variable cv;
 
     void do_connect();

@@ -4,10 +4,12 @@
 Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
 
 void Server_Session::update_paths(const std::string& path, size_t hash) {
+    std::lock_guard lg(paths_mutex);
     paths[path] = hash;
 }
 
 void Server_Session::do_remove(const std::string& path) {
+    std::lock_guard lg(paths_mutex);
     paths.erase(path);
     std::string directory = std::string("../../server/") + std::string(username);
     std::string relative_path = directory + std::string("/") + std::string(path);
@@ -48,6 +50,7 @@ void Server_Session::do_write() {
             boost::asio::dynamic_string_buffer(*write_queue_s.front().get_msg_ptr()),
             [this, self](boost::system::error_code ec, std::size_t /*length*/) {
                 if (!ec) {
+                    std::lock_guard lg(wq_mutex);
                     write_queue_s.pop();
                     if (!write_queue_s.empty()) do_write();
                 } else {
@@ -78,6 +81,7 @@ Diff_vect Server_Session::compare_paths(ptree &client_pt) {
 }
 
 void Server_Session::enqueue_msg(const Message &msg) {
+    std::lock_guard lg(wq_mutex);
     bool write_in_progress = !write_queue_s.empty();
     write_queue_s.push(msg);
     if (!write_in_progress) do_write();
@@ -219,7 +223,6 @@ void Server_Session::request_handler(Message msg) {
         if (status_type <= 8) {
             response_msg.encode_message(status_type, response_str);
             enqueue_msg(response_msg);
-            db.update_db_paths(paths, username);
         }
     } catch (const boost::property_tree::ptree_error &err) {
         response_str = std::string("Communication error");

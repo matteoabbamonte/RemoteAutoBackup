@@ -6,7 +6,7 @@
 Client::Client(boost::asio::io_context& io_context, tcp::resolver::results_type  endpoints,
         std::shared_ptr<bool> &running, std::string path_to_watch, DirectoryWatcher &dw, std::shared_ptr<bool> &stop, std::shared_ptr<bool> &watching)
         : io_context_(io_context), socket_(io_context), endpoints(std::move(endpoints)), running(running),
-        path_to_watch(path_to_watch), dw_ptr(std::make_shared<DirectoryWatcher>(dw)), stop(stop), watching(watching), delay(5000) {
+        path_to_watch(path_to_watch), dw_ptr(std::shared_ptr<DirectoryWatcher>(&dw)), stop(stop), watching(watching), delay(5000) {
             do_connect();
 }
 
@@ -45,6 +45,7 @@ void Client::do_write() {
     boost::asio::async_write(socket_, boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
             [this](boost::system::error_code ec, std::size_t /*length*/) {
                 if (!ec) {
+                    std::lock_guard lg(wq_m);
                     write_queue_c.pop();
                     if (!write_queue_c.empty()) do_write();
                 } else {
@@ -56,9 +57,9 @@ void Client::do_write() {
 }
 
 void Client::enqueue_msg(const Message &msg) {
+    std::lock_guard lg(wq_m);
     bool write_in_progress = !write_queue_c.empty();
     write_queue_c.push(msg);
-    //std::cout << write_queue_c.front().get_msg_ptr() << std::endl;
     if (!write_in_progress) do_write();
 }
 
@@ -215,7 +216,7 @@ void Client::read_file(const std::string& relative_path, const std::string& path
             std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
             pt.clear();
             pt.add("path", path);
-            pt.add("hash", DirectoryWatcher::paths_[relative_path].hash);
+            pt.add("hash", dw_ptr->getNode(relative_path).hash);
             pt.add("isFile", isFile);
             pt.add("content", encodedData);
         } catch (const std::ios_base::failure &err) {
@@ -299,7 +300,7 @@ void Client::handle_reading_failures() {
 void Client::handle_synch() {
     try {
         boost::property_tree::ptree pt;
-        for (const auto& tuple : DirectoryWatcher::paths_) {
+        for (const auto& tuple : dw_ptr->getPaths()) {
             std::string path(tuple.first);
             path = path.substr(path_to_watch.size()+1);
             while (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");
@@ -336,7 +337,7 @@ void Client::handle_status(Message msg) {
                     std::ifstream inFile;
                     relative_path = std::string(path_to_watch + "/") + relative_path;
                     boost::property_tree::ptree pt;
-                    read_file(relative_path, path, DirectoryWatcher::paths_[relative_path].isFile, pt);
+                    read_file(relative_path, path, dw_ptr->getNode(relative_path).isFile, pt);
                     /* Writing message */
                     std::stringstream file_stream;
                     boost::property_tree::write_json(file_stream, pt, false);
