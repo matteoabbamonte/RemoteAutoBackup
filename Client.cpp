@@ -58,7 +58,7 @@ void Client::do_write() {
 void Client::enqueue_msg(const Message &msg) {
     bool write_in_progress = !write_queue_c.empty();
     write_queue_c.push(msg);
-    std::cout << write_queue_c.front().get_msg_ptr() << std::endl;
+    //std::cout << write_queue_c.front().get_msg_ptr() << std::endl;
     if (!write_in_progress) do_write();
 }
 
@@ -166,12 +166,12 @@ void Client::do_start_watcher() {
                         break;
                     }
                     case FileStatus::erased : {
-                        if (isFile) std::cout << "File erased: " << path << '\n';
-                        else std::cout << "Directory erased: " << path << '\n';
                         try {
                             if (std::find(paths_to_ignore.begin(), paths_to_ignore.end(), path) == paths_to_ignore.end()) {
                                 pt.add("path", path);
                                 action_type = 4;
+                                if (isFile) std::cout << "File erased: " << path << '\n';
+                                else std::cout << "Directory erased: " << path << '\n';
                             }
                         } catch (const boost::property_tree::ptree_error &err) {
                             std::cerr << "Error while executing the action on the file " << path << ", closing session. " << std::endl;
