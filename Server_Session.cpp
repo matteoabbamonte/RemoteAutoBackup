@@ -219,6 +219,7 @@ void Server_Session::request_handler(Message msg) {
         if (status_type <= 8) {
             response_msg.encode_message(status_type, response_str);
             enqueue_msg(response_msg);
+            db.update_db_paths(paths, username);
         }
     } catch (const boost::property_tree::ptree_error &err) {
         response_str = std::string("Communication error");
