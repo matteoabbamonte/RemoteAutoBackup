@@ -45,7 +45,7 @@ void Client::do_write() {
     boost::asio::async_write(socket_, boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
             [this](boost::system::error_code ec, std::size_t /*length*/) {
                 if (!ec) {
-                    std::lock_guard lg(wq_m);
+                    std::lock_guard lg(wq_mutex);
                     write_queue_c.pop();
                     if (!write_queue_c.empty()) do_write();
                 } else {
@@ -57,7 +57,7 @@ void Client::do_write() {
 }
 
 void Client::enqueue_msg(const Message &msg) {
-    std::lock_guard lg(wq_m);
+    std::lock_guard lg(wq_mutex);
     bool write_in_progress = !write_queue_c.empty();
     write_queue_c.push(msg);
     if (!write_in_progress) do_write();
@@ -65,7 +65,7 @@ void Client::enqueue_msg(const Message &msg) {
 
 void Client::get_credentials() {
     try {
-        std::unique_lock ul(m);
+        std::unique_lock ul(input_mutex);
         do_start_input_reader();
         cv.wait(ul, [this](){return !cred.username.empty() && !cred.password.empty();});
         Message login_message;
@@ -97,12 +97,12 @@ void Client::do_start_input_reader() {
                 if (input == "exit") {
                     if (*running) close();
                 } else if (input == "y") {
-                    std::lock_guard lg(m);
+                    std::lock_guard lg(input_mutex);
                     *stop = false;
                     cv.notify_all();
                     break;
                 } else if (input == "n") {
-                    std::lock_guard lg(m);
+                    std::lock_guard lg(input_mutex);
                     *stop = true;
                     cv.notify_all();
                     break;
@@ -110,7 +110,7 @@ void Client::do_start_input_reader() {
                     std::cerr << "Do you want to reconnect? (y/n): ";
                 }
             } else {
-                std::lock_guard lg(m);
+                std::lock_guard lg(input_mutex);
                 if (!user_done) {
                     set_username(input);
                     user_done = true;
@@ -400,7 +400,7 @@ void Client::close() {
     *running = *watching = false;
     boost::asio::post(io_context_, [this]() {
         if (socket_.is_open()) socket_.close();
-        std::unique_lock ul(m);
+        std::unique_lock ul(input_mutex);
         std::cerr << "Do you want to reconnect? (y/n): ";
         cv.wait(ul);
     });
