@@ -16,7 +16,7 @@ std::tuple<bool, bool> Database_Connection::check_database(const std::string& te
                 count = sqlite3_column_int(statement, 0);
             }
         } else {
-            std::cout << "Database Error: " << res << ", " << sqlite3_errmsg(conn) << std::endl;
+            std::cerr << "Database Error, " << sqlite3_errmsg(conn) << std::endl;
             db_availability = false;
         }
         sqlite3_finalize(statement);
@@ -33,10 +33,16 @@ bool Database_Connection::update_db_paths(std::map<std::string, std::size_t> &pa
     std::cout << "Updating Database..." << std::endl;
     bool db_availability = true;
     boost::property_tree::ptree pt;
-    for (auto & path : paths)
-        pt.add(path.first, path.second);
     std::stringstream map_to_stream;
-    boost::property_tree::write_json(map_to_stream, pt);
+    try {
+        throw boost::property_tree::ptree_error("Giovanni");
+        for (auto & path : paths)
+            pt.add(path.first, path.second);
+        boost::property_tree::write_json(map_to_stream, pt);
+    } catch (const boost::property_tree::ptree_error &err) {
+        std::cerr << "Error while writing json." << std::endl;
+        throw;
+    }
     if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("UPDATE client SET paths = '") + map_to_stream.str() + std::string("' WHERE username = '") + username + std::string("';");
         sqlite3_stmt *statement;
@@ -44,7 +50,7 @@ bool Database_Connection::update_db_paths(std::map<std::string, std::size_t> &pa
         if (res == SQLITE_OK) {
             sqlite3_step(statement);
         } else {
-            std::cout << "Database Error: " << res << ", " << sqlite3_errmsg(conn) << std::endl;
+            std::cerr << "Database Error, " << sqlite3_errmsg(conn) << std::endl;
             db_availability = false;
         }
         sqlite3_finalize(statement);
@@ -71,17 +77,21 @@ std::tuple<bool, bool> Database_Connection::get_paths(std::map<std::string, std:
                 std::stringstream paths_stream(reinterpret_cast<char*>(paths_ch));
                 found = true;
                 boost::property_tree::ptree pt;
-                boost::property_tree::read_json(paths_stream, pt);
-                for (auto pair : pt) {
-                    std::stringstream hash_stream(pair.second.data());
-                    size_t hash;
-                    hash_stream >> hash;
-                    paths[pair.first] = hash;
+                try {
+                    boost::property_tree::read_json(paths_stream, pt);
+                    for (auto pair : pt) {
+                        std::stringstream hash_stream(pair.second.data());
+                        size_t hash;
+                        hash_stream >> hash;
+                        paths[pair.first] = hash;
+                    }
+                } catch (const boost::property_tree::ptree_error &err) {
+                    throw;
                 }
             }
         } else {
             db_availability = false;
-            std::cout << "Database Connection Error" << std::endl;
+            std::cerr << "Database Connection Error, " << sqlite3_errmsg(conn) << std::endl;
         }
         sqlite3_finalize(statement);
         sqlite3_close(conn);

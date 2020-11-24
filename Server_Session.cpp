@@ -229,17 +229,39 @@ void Server_Session::request_handler(Message msg) {
         response_msg.encode_message(7, response_str);
         enqueue_msg(response_msg);
         std::cerr << "Server is not working properly." << std::endl;
+    } catch (const std::ios_base::failure &err) {
+        response_str = std::string("Communication error");
+        response_msg.encode_message(7, response_str);
+        enqueue_msg(response_msg);
+        std::cerr << "Server is not working properly." << std::endl;
     }
 }
 
 Server_Session::~Server_Session() {
-    if (!paths.empty()) {
-        bool result = db.update_db_paths(paths, username);
-        if (!result) {
-            Message response_msg;
-            std::string response_str("Service unavailable");
-            response_msg.encode_message(7, response_str);
-            enqueue_msg(response_msg);
+    auto delay = boost::chrono::milliseconds(5000);
+    while (delay.count() <= 20000) {
+        if (!paths.empty()) {
+            try {
+                bool result;
+                do {
+                    result = db.update_db_paths(paths, username);
+                    if (!result) {
+                        std::cout << "Waiting for " << delay.count()/1000 << " sec..." << std::endl;
+                        boost::this_thread::sleep_for(delay);
+                        delay *= 2;
+                    }
+                } while (!result && delay.count() <= 20000);
+                if (result) std::cout << "Database successfully updated" << std::endl;
+                else std::cout << "Database not updated" << std::endl;
+                delay = boost::chrono::milliseconds(30000);
+            } catch (const boost::property_tree::ptree_error &err) {
+                std::cout << "Waiting for " << delay.count()/1000 << " sec..." << std::endl;
+                if (delay.count() <= 20000) {
+                    boost::this_thread::sleep_for(delay);
+                    delay *= 2;
+                }
+                if (delay.count() > 20000) std::cout << "Database not updated" << std::endl;
+            }
         }
     }
 }

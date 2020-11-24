@@ -10,6 +10,8 @@
 #include "Database_Connection.h"
 #include "Headers.h"
 #include "Message.h"
+#include <boost/chrono.hpp>
+#include <boost/thread.hpp>
 
 
 #define delimiter "\n}\n"

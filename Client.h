@@ -1,12 +1,14 @@
 #pragma once
 #include <iostream>
 #include <boost/asio.hpp>
+#include <boost/thread.hpp>
 #include <boost/property_tree/exceptions.hpp>
 #include <queue>
 #include "Base64/base64.h"
 #include "DirectoryWatcher.h"
 #include "Headers.h"
 #include "Message.h"
+#include <utility>
 
 using boost::asio::ip::tcp;
 
@@ -24,10 +26,10 @@ class Client {
     std::queue<Message> write_queue_c;
     std::vector<std::string> paths_to_ignore;
     Credentials cred;
-    std::thread input_reader;
-    std::thread directoryWatcher;
+    boost::thread input_reader;
+    boost::thread directoryWatcher;
     std::string path_to_watch;
-    std::chrono::duration<int, std::milli> delay;
+    boost::chrono::milliseconds delay;
     std::shared_ptr<bool> running;
     std::shared_ptr<bool> stop;
     std::shared_ptr<bool> watching;
@@ -67,7 +69,7 @@ class Client {
 
 public:
     Client(boost::asio::io_context& io_context, tcp::resolver::results_type  endpoints,
-           std::shared_ptr<bool> &running, std::string path_to_watch, DirectoryWatcher &dw, std::shared_ptr<bool> &stop, std::shared_ptr<bool> &watching);
+           std::shared_ptr<bool> &running, std::string path_to_watch, std::shared_ptr<DirectoryWatcher> &dw, std::shared_ptr<bool> &stop, std::shared_ptr<bool> &watching);
 
     ~Client();
 };

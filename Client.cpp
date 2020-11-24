@@ -1,12 +1,11 @@
 #include "Client.h"
 
-#include <utility>
 #define delimiter "\n}\n"
 
 Client::Client(boost::asio::io_context& io_context, tcp::resolver::results_type  endpoints,
-        std::shared_ptr<bool> &running, std::string path_to_watch, DirectoryWatcher &dw, std::shared_ptr<bool> &stop, std::shared_ptr<bool> &watching)
+        std::shared_ptr<bool> &running, std::string path_to_watch, std::shared_ptr<DirectoryWatcher> &dw, std::shared_ptr<bool> &stop, std::shared_ptr<bool> &watching)
         : io_context_(io_context), socket_(io_context), endpoints(std::move(endpoints)), running(running),
-        path_to_watch(path_to_watch), dw_ptr(std::shared_ptr<DirectoryWatcher>(&dw)), stop(stop), watching(watching), delay(5000) {
+        path_to_watch(path_to_watch), dw_ptr(dw), stop(stop), watching(watching), delay(5000) {
             do_connect();
 }
 
@@ -86,7 +85,7 @@ void Client::set_password(std::string &pwd) {
 }
 
 void Client::do_start_input_reader() {
-    input_reader = std::thread([&](){
+    input_reader = boost::thread([&](){
         std::string input;
         bool user_done = false;
         bool cred_done = false;
@@ -127,7 +126,7 @@ void Client::do_start_input_reader() {
 
 void Client::do_start_watcher() {
     if (!*watching) *watching = true;
-    directoryWatcher = std::thread([this](){
+    directoryWatcher = boost::thread([this](){
         dw_ptr->start([this](std::string path, FileStatus status, bool isFile) {
             if (boost::filesystem::is_regular_file(boost::filesystem::path(path))   // Process only regular files, all other file types are ignored
             || boost::filesystem::is_directory(boost::filesystem::path(path)) || status == FileStatus::erased) {
@@ -221,14 +220,14 @@ void Client::read_file(const std::string& relative_path, const std::string& path
             pt.add("content", encodedData);
         } catch (const std::ios_base::failure &err) {
             if (!reopen_done) {
-                std::this_thread::sleep_for(std::chrono::duration<int, std::milli>(2000));
+                boost::this_thread::sleep_for(boost::chrono::milliseconds(2000));
                 reopen_done = true;
             } else {
                 throw;
             }
         } catch (const boost::property_tree::ptree_bad_data &err) {
             if (!reopen_done) {
-                std::this_thread::sleep_for(std::chrono::duration<int, std::milli>(2000));
+                boost::this_thread::sleep_for(boost::chrono::milliseconds(2000));
                 reopen_done = true;
             } else {
                 throw;
@@ -243,9 +242,9 @@ void Client::handle_connection_failures() {
             get_credentials();
             do_read_body();
         } else {
-            auto wait = std::chrono::duration_cast<std::chrono::seconds>(delay);
+            auto wait = boost::chrono::milliseconds(delay);
             std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
-            std::this_thread::sleep_for(delay);
+            boost::this_thread::sleep_for(delay);
             if (wait.count() >= 20) {
                 std::cerr << "Server unavailable. ";
                 std::cerr << "Do you want to reconnect? (y/n): ";
@@ -283,9 +282,9 @@ void Client::handle_reading_failures() {
                 close();
             }
         } else {
-            auto wait = std::chrono::duration_cast<std::chrono::seconds>(delay);
+            auto wait = boost::chrono::milliseconds(delay);
             std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
-            std::this_thread::sleep_for(delay);
+            boost::this_thread::sleep_for(delay);
             if (wait.count() >= 20) {
                 std::cerr << "Server unavailable. ";
                 close();
@@ -354,9 +353,9 @@ void Client::handle_status(Message msg) {
                 break;
             }
             case status_type::service_unavailable : {
-                auto wait = std::chrono::duration_cast<std::chrono::seconds>(delay);
+                auto wait = boost::chrono::milliseconds(delay);
                 std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
-                std::this_thread::sleep_for(delay);
+                boost::this_thread::sleep_for(delay);
                 Message last_message;
                 if (data == "login" || data == "Communication error") {
                     last_message.put_credentials(cred.username, cred.password);
@@ -384,7 +383,7 @@ void Client::handle_status(Message msg) {
                 break;
             }
             default : {
-                std::cout << "Default status." << std::endl;
+                std::cout << "Operation completed." << std::endl;
             }
         }
     } catch (const boost::property_tree::ptree_error &err) {

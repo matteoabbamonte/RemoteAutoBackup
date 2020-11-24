@@ -4,10 +4,8 @@ DirectoryWatcher::DirectoryWatcher(std::string path_to_watch, std::chrono::durat
         : path_to_watch{std::move(path_to_watch)}, delay{delay}, watching(watching) {
     std::lock_guard lg(paths_mutex);
     for (boost::filesystem::directory_entry &element : boost::filesystem::recursive_directory_iterator(this->path_to_watch)) {
-        //if (element.path().filename().string().find(".",0) != 0) {
             auto lats_time_mod = boost::filesystem::last_write_time(element);
             paths_[element.path().string()] = {lats_time_mod, boost::filesystem::is_regular_file(element), make_hash(element)};
-        //}
     }
 }
 
@@ -36,7 +34,6 @@ void DirectoryWatcher::start(std::function<void (std::string, FileStatus, bool)>
         }
         // Check if a file was created or modified
         for (boost::filesystem::directory_entry& element : boost::filesystem::recursive_directory_iterator(path_to_watch)) {
-            //if (element.path().filename().string().find(".",0) != 0) {
                 auto lats_time_mod = boost::filesystem::last_write_time(element);
                 if (paths_.find(element.path().string()) == paths_.end()) {                  /* Element creation */
                     paths_[element.path().string()] = {lats_time_mod, boost::filesystem::is_regular_file(element), make_hash(element)};
@@ -45,7 +42,6 @@ void DirectoryWatcher::start(std::function<void (std::string, FileStatus, bool)>
                     paths_[element.path().string()] = {lats_time_mod, boost::filesystem::is_regular_file(element), make_hash(element)};
                     action(element.path().string(), FileStatus::modified, boost::filesystem::is_regular_file(element));
                 }
-            //}
         }
     }
 }
@@ -63,7 +59,6 @@ std::map<std::string, RecPath> &DirectoryWatcher::getPaths() {
 }
 
 RecPath DirectoryWatcher::getNode(std::string path) {
-    //std::lock_guard lg(paths_mutex);
     return paths_[path];
 }
 
