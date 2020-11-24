@@ -87,6 +87,40 @@ void Server_Session::enqueue_msg(const Message &msg) {
     if (!write_in_progress) do_write();
 }
 
+std::string Server_Session::write_element(action_type header, std::string data) {
+    try {
+        boost::property_tree::ptree pt;
+        std::stringstream data_stream;
+        data_stream << data;
+        boost::property_tree::json_parser::read_json(data_stream, pt);
+        auto path = pt.get<std::string>("path");
+        auto hash = pt.get<std::size_t>("hash");
+        bool isFile = pt.get<bool>("isFile");
+        update_paths(path, hash);
+        std::string directory = std::string("../../server/") + std::string(username);
+        if (!boost::filesystem::is_directory(directory)) boost::filesystem::create_directory(directory);
+        std::string relative_path = directory + std::string("/") + std::string(path);
+        while (relative_path.find(':') < relative_path.size())
+            relative_path.replace(relative_path.find(':'), 1, ".");
+        if (header == action_type::create && !isFile) {           /* create a directory with the specified name */
+            boost::filesystem::create_directory(relative_path);
+        } else {                 /* create a file with the specified name */
+            auto content = pt.get<std::string>("content");
+            std::vector<BYTE> decodedData = base64_decode(content);
+            boost::filesystem::ofstream outFile(relative_path.data());
+            if (!content.empty()) {
+                outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
+                outFile.close();
+            }
+        }
+        return path;
+    } catch (const boost::property_tree::ptree_error &err) {
+        throw;
+    } catch (const std::ios_base::failure &err) {
+        throw;
+    }
+}
+
 void Server_Session::request_handler(Message msg) {
     Message response_msg;
     std::string response_str;
@@ -148,57 +182,13 @@ void Server_Session::request_handler(Message msg) {
                     break;
                 }
                 case (action_type::create) : {
-                    boost::property_tree::ptree pt;
-                    std::stringstream data_stream;
-                    data_stream << data;
-                    boost::property_tree::json_parser::read_json(data_stream, pt);
-                    auto path = pt.get<std::string>("path");
-                    auto hash = pt.get<std::size_t>("hash");
-                    bool isFile = pt.get<bool>("isFile");
-                    update_paths(path, hash);
-                    std::string directory = std::string("../../server/") + std::string(username);
-                    if (!boost::filesystem::is_directory(directory)) boost::filesystem::create_directory(directory);
-                    std::string relative_path = directory + std::string("/") + std::string(path);
-                    while (relative_path.find(':') < relative_path.size())
-                        relative_path.replace(relative_path.find(':'), 1, ".");
-                    if (!isFile) {           /* create a directory with the specified name */
-                        boost::filesystem::create_directory(relative_path);
-                    } else {                 /* create a file with the specified name */
-                        auto content = pt.get<std::string>("content");
-                        std::vector<BYTE> decodedData = base64_decode(content);
-                        boost::filesystem::ofstream outFile(relative_path.data());
-                        if (!content.empty()) {
-                            outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
-                            outFile.close();
-                        }
-                    }
+                    std::string path = write_element(header, data);
                     status_type = 1;
                     response_str = std::string(path) + std::string(" created");
                     break;
                 }
                 case (action_type::update) : {
-                    boost::property_tree::ptree pt;
-                    std::stringstream data_stream;
-                    data_stream << data;
-                    boost::property_tree::json_parser::read_json(data_stream, pt);
-                    auto path = pt.get<std::string>("path");
-                    auto hash = pt.get<std::size_t>("hash");
-                    bool isFile = pt.get<bool>("isFile");
-                    update_paths(path, hash);
-                    if (isFile) {
-                        auto content = pt.get<std::string>("content");
-                        std::vector<BYTE> decodedData = base64_decode(content);
-                        std::string directory = std::string("../../server/") + std::string(username);
-                        std::string relative_path = directory + std::string("/") + std::string(path);
-                        while (relative_path.find(':') < relative_path.size())
-                            relative_path.replace(relative_path.find(':'), 1, ".");
-                        boost::filesystem::remove_all(relative_path.data());
-                        boost::filesystem::ofstream outFile(relative_path.data());
-                        if (!content.empty()) {
-                            outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
-                            outFile.close();
-                        }
-                    }
+                    std::string path = write_element(header, data);
                     status_type = 2;
                     response_str = std::string(path) + std::string(" updated");
                     break;

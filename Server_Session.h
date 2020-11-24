@@ -46,6 +46,8 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
 
     void enqueue_msg(const Message& msg);;
 
+    std::string write_element(action_type header, std::string data);
+
     Diff_vect compare_paths(ptree &client_pt);
 
 public:
