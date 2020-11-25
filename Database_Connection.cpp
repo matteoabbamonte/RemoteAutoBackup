@@ -35,7 +35,6 @@ bool Database_Connection::update_db_paths(std::map<std::string, std::size_t> &pa
     boost::property_tree::ptree pt;
     std::stringstream map_to_stream;
     try {
-        throw boost::property_tree::ptree_error("Giovanni");
         for (auto & path : paths)
             pt.add(path.first, path.second);
         boost::property_tree::write_json(map_to_stream, pt);
