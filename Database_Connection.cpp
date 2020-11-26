@@ -1,26 +1,26 @@
 #include "Database_Connection.h"
 
-Database_Connection::Database_Connection(): db_name("../Clients.sqlite"){};
-
+Database_Connection::Database_Connection(): db_name("../Clients.sqlite") {};
 
 std::tuple<bool, bool> Database_Connection::check_database(const std::string& temp_username, const std::string& password) {
     std::cout << "Checking Database..." << std::endl;
+    sqlite3* conn;  //database handle defined by the sqlite3 structure
     int count = 0;
     bool db_availability = true;
     if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("SELECT COUNT(*) FROM Client WHERE username = '") + temp_username + std::string("' AND password = '") + password + std::string("';");
-        sqlite3_stmt *statement;
-        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);
+        sqlite3_stmt *statement;    //it represents a single sql statement
+        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);  //compiles the sql statement into a bytecode saved in statement structure
         if (res == SQLITE_OK) {
-            while( sqlite3_step(statement) == SQLITE_ROW ) {
+            while(sqlite3_step(statement) == SQLITE_ROW) {    //runs the bytecode of the sql statement
                 count = sqlite3_column_int(statement, 0);
             }
         } else {
             std::cerr << "Database Error, " << sqlite3_errmsg(conn) << std::endl;
             db_availability = false;
         }
-        sqlite3_finalize(statement);
-        sqlite3_close(conn);
+        sqlite3_finalize(statement);    //destroys the prepared statement object
+        sqlite3_close(conn);    //closes the db connection and destroys the handle
     } else {
         db_availability = false;
     }
@@ -28,57 +28,25 @@ std::tuple<bool, bool> Database_Connection::check_database(const std::string& te
     return count_avail;
 }
 
-
-bool Database_Connection::update_db_paths(std::map<std::string, std::size_t> &paths, std::string username) {
-    std::cout << "Updating Database..." << std::endl;
-    bool db_availability = true;
-    boost::property_tree::ptree pt;
-    std::stringstream map_to_stream;
-    try {
-        for (auto & path : paths)
-            pt.add(path.first, path.second);
-        boost::property_tree::write_json(map_to_stream, pt);
-    } catch (const boost::property_tree::ptree_error &err) {
-        std::cerr << "Error while writing json." << std::endl;
-        throw;
-    }
-    if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK) {
-        std::string sqlStatement = std::string("UPDATE client SET paths = '") + map_to_stream.str() + std::string("' WHERE username = '") + username + std::string("';");
-        sqlite3_stmt *statement;
-        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);
-        if (res == SQLITE_OK) {
-            sqlite3_step(statement);
-        } else {
-            std::cerr << "Database Error, " << sqlite3_errmsg(conn) << std::endl;
-            db_availability = false;
-        }
-        sqlite3_finalize(statement);
-        sqlite3_close(conn);
-    } else {
-        db_availability = false;
-    }
-    return db_availability;
-}
-
-
-std::tuple<bool, bool> Database_Connection::get_paths(std::map<std::string, std::size_t> &paths, std::string username) {
+std::tuple<bool, bool> Database_Connection::get_paths(std::map<std::string, std::size_t> &paths, const std::string& username) {
+    sqlite3* conn;  //database handle defined by the sqlite3 structure
     unsigned char *paths_ch = nullptr;
     bool found = false;
     bool db_availability = true;
     if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("SELECT paths FROM client WHERE username = '") + username + std::string("';");
-        sqlite3_stmt *statement;
-        if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr) == SQLITE_OK) {
-            if ( sqlite3_step(statement) == SQLITE_ROW ) {
-                paths_ch = const_cast<unsigned char*>(sqlite3_column_text(statement, 0));
+        sqlite3_stmt *statement;    //it represents a single sql statement
+        if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr) == SQLITE_OK) { //compiles the sql statement into a bytecode saved in statement structure
+            if (sqlite3_step(statement) == SQLITE_ROW) {  //runs the bytecode of the sql statement
+                paths_ch = const_cast<unsigned char*>(sqlite3_column_text(statement, 0));   //const cast in order to remove the const
             }
             if (paths_ch != nullptr) {
                 std::stringstream paths_stream(reinterpret_cast<char*>(paths_ch));
                 found = true;
                 boost::property_tree::ptree pt;
                 try {
-                    boost::property_tree::read_json(paths_stream, pt);
-                    for (auto pair : pt) {
+                    boost::property_tree::read_json(paths_stream, pt);  //Re-creating json from data stream
+                    for (auto pair : pt) {  //for every field the key-value pairs are saved in the paths map
                         std::stringstream hash_stream(pair.second.data());
                         size_t hash;
                         hash_stream >> hash;
@@ -92,11 +60,43 @@ std::tuple<bool, bool> Database_Connection::get_paths(std::map<std::string, std:
             db_availability = false;
             std::cerr << "Database Connection Error, " << sqlite3_errmsg(conn) << std::endl;
         }
-        sqlite3_finalize(statement);
-        sqlite3_close(conn);
+        sqlite3_finalize(statement);    //destroys the prepared statement object
+        sqlite3_close(conn);    //closes the db connection and destroys the handle
     } else {
         db_availability = false;
     }
     std::tuple<bool, bool> found_avail = {found, db_availability};
     return found_avail;
+}
+
+bool Database_Connection::update_db_paths(std::map<std::string, std::size_t> &paths, const std::string& username) {
+    std::cout << "Updating Database..." << std::endl;
+    sqlite3* conn;  //database handle defined by the sqlite3 structure
+    bool db_availability = true;
+    boost::property_tree::ptree pt;
+    std::stringstream map_to_stream;
+    try {
+        for (auto & path : paths)   //for every element of the map the key-value pairs are saved in a json file
+            pt.add(path.first, path.second);
+        boost::property_tree::write_json(map_to_stream, pt);    //saving the json in a stream
+    } catch (const boost::property_tree::ptree_error &err) {
+        std::cerr << "Error while writing json." << std::endl;
+        throw;
+    }
+    if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK) {
+        std::string sqlStatement = std::string("UPDATE client SET paths = '") + map_to_stream.str() + std::string("' WHERE username = '") + username + std::string("';");
+        sqlite3_stmt *statement;    //it represents a single sql statement
+        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);  //compiles the sql statement into a bytecode saved in statement structure
+        if (res == SQLITE_OK) {
+            sqlite3_step(statement);    //runs the bytecode of the sql statement
+        } else {
+            std::cerr << "Database Error, " << sqlite3_errmsg(conn) << std::endl;
+            db_availability = false;
+        }
+        sqlite3_finalize(statement);    //destroys the prepared statement object
+        sqlite3_close(conn);        //closes the db connection and destroys the handle
+    } else {
+        db_availability = false;
+    }
+    return db_availability;
 }

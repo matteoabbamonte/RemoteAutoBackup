@@ -8,17 +8,22 @@
 #include <map>
 
 class Database_Connection {
-    sqlite3* conn;
     std::string db_name;
 
 public:
 
     Database_Connection();
 
+    //looks for the received credentials and returns two booleans representing the presence (or the absence) of the
+    //entry and the availability of the database
     std::tuple<bool, bool> check_database(const std::string& temp_username, const std::string& password);
 
-    bool update_db_paths(std::map<std::string, std::size_t> &paths, std::string username);
+    //given a username, it saves in the given map the paths taken from the db, returns two booleans representing the
+    //presence (or the absence) of the entry and the availability of the database
+    std::tuple<bool, bool> get_paths(std::map<std::string, std::size_t> &paths, const std::string& username);
 
-    std::tuple<bool, bool> get_paths(std::map<std::string, std::size_t> &paths, std::string username);
+    //given a username it saves the paths contained in the map to the corresponding field in the db and returns
+    //the availability of the database
+    bool update_db_paths(std::map<std::string, std::size_t> &paths, const std::string& username);
 };
 

@@ -56,7 +56,7 @@ std::string Server_Session::do_write_element(action_type header, const std::stri
         boost::property_tree::ptree pt;
         std::stringstream data_stream;
         data_stream << data;
-        boost::property_tree::json_parser::read_json(data_stream, pt);      // Re-creating json from data stream
+        boost::property_tree::json_parser::read_json(data_stream, pt);      //Re-creating json from data stream
         auto path = pt.get<std::string>("path");
         auto hash = pt.get<std::size_t>("hash");
         bool isFile = pt.get<bool>("isFile");
