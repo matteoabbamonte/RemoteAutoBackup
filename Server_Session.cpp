@@ -3,23 +3,23 @@
 Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
 
 void Server_Session::start() {
-    do_read_body();
+    do_read();
 }
 
-void Server_Session::do_read_body() {
-    std::cout << "Reading message body..." << std::endl;
+void Server_Session::do_read() {
+    std::cout << "Reading message..." << std::endl;
     auto self(shared_from_this());
     boost::asio::async_read_until(socket_, read_buf, delimiter,
                                   [this, self](const boost::system::error_code ec, std::size_t length){
                                       if (!ec) {
                                           std::string str(boost::asio::buffers_begin(read_buf.data()),
                                                           boost::asio::buffers_begin(read_buf.data()) + read_buf.size());
-                                          read_buf.consume(length);     // Crop buffer in order to let the next do_read_body work properly
+                                          read_buf.consume(length);     // Crop buffer in order to let the next do_read work properly
                                           str.resize(length);           // Crop in order to erase residuals taken from the buffer
                                           Message msg;
                                           *msg.get_msg_ptr() = str;
                                           request_handler(msg);
-                                          do_read_body();
+                                          do_read();
                                       } else {
                                           if (!username.empty()) std::cout << "Client " << username << " disconnected, closing session..." << std::endl;
                                           else std::cerr << "Error during login phase, closing session..." << std::endl;

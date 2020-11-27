@@ -11,30 +11,31 @@ Client::Client(boost::asio::io_context& io_context, tcp::resolver::results_type 
 
 void Client::do_connect() {
     std::cout << "Trying to connect..." << std::endl;
-    boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {
+    boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) { //asynchronous connection request
         if (!ec) {
             get_credentials();
-            do_read_body();
+            do_read();
         } else {
             handle_connection_failures();
         }
     });
 }
 
-void Client::do_read_body() {
-    std::cout << "Reading message body..." << std::endl;
+void Client::do_read() {
+    std::cout << "Reading message..." << std::endl;
     boost::asio::async_read_until(socket_,read_buf, delimiter, [this](boost::system::error_code ec, std::size_t length) {
         if (!ec) {
-            std::string str(boost::asio::buffers_begin(read_buf.data()), boost::asio::buffers_begin(read_buf.data()) + read_buf.size());
-            read_buf.consume(length);
+            std::string str(boost::asio::buffers_begin(read_buf.data()),
+                            boost::asio::buffers_begin(read_buf.data()) + read_buf.size());
+            read_buf.consume(length);     // Crop buffer in order to let the next do_read work properly
+            str.resize(length);           // Crop in order to erase residuals taken from the buffer
             Message msg;
             *msg.get_msg_ptr() = str;
-            msg.get_msg_ptr()->resize(length);
             handle_status(msg);
-            do_read_body();
+            do_read();
         } else {
-            *running_watcher = false;
-            if (*running_client) handle_reading_failures();
+            *running_watcher = false;   // Signaling to the directory watcher the end of the client session
+            if (*running_client) handle_reading_failures();   // If the socket has been closed by the server then call the EOF handler
         }
     });
 }
@@ -42,13 +43,13 @@ void Client::do_read_body() {
 void Client::do_write() {
     std::cout << "Writing message..." << std::endl;
     boost::asio::async_write(socket_, boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
-            [this](boost::system::error_code ec, std::size_t /*length*/) {
+            [this](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
-                    std::lock_guard lg(wq_mutex);
+                    std::lock_guard lg(wq_mutex);   // Lock in order to guarantee thread safe pop operation
                     write_queue_c.pop();
                     if (!write_queue_c.empty()) do_write();
                 } else {
-                    *running_watcher = false;
+                    *running_watcher = false;   // Signaling to the directory watcher the end of the client session
                     std::cerr << "Error while writing. ";
                     close();
                 }
@@ -56,19 +57,19 @@ void Client::do_write() {
 }
 
 void Client::enqueue_msg(const Message &msg) {
-    std::lock_guard lg(wq_mutex);
+    std::lock_guard lg(wq_mutex);   // Lock in order to guarantee thread safe push operation
     bool write_in_progress = !write_queue_c.empty();
     write_queue_c.push(msg);
-    if (!write_in_progress) do_write();
+    if (!write_in_progress) do_write();    // Call do_write only if it is not already running
 }
 
 void Client::get_credentials() {
     try {
-        std::unique_lock ul(input_mutex);
+        std::unique_lock ul(input_mutex);   // Unique lock in order to use the cv wait
         do_start_input_reader();
-        cv.wait(ul, [this](){return !cred.username.empty() && !cred.password.empty();});
+        cv.wait(ul, [this](){return !cred.username.empty() && !cred.password.empty();});    // Waiting for the input reader thread to receive the credentials
         Message login_message;
-        login_message.put_credentials(cred.username, cred.password);
+        login_message.put_credentials(cred.username, cred.password);    // Saving the credentials in the message that has to be sent
         enqueue_msg(login_message);
     } catch (const boost::property_tree::ptree_error &err) {
         std::cerr << "Error while completing login procedure. ";
@@ -85,40 +86,40 @@ void Client::set_password(std::string &pwd) {
 }
 
 void Client::do_start_input_reader() {
-    input_reader = boost::thread([&](){
+    input_reader = boost::thread([this](){
         std::string input;
-        bool user_done = false;
-        bool cred_done = false;
+        bool user_done = false;    // True if the username has been inserted
+        bool cred_done = false;    // True if the credentials have been inserted
         std::cout << "Insert username: ";
         while (std::cin >> input) {
-            if (!std::cin) close();
+            if (!std::cin) close();    // If there is any error during the input process then close.
             if (cred_done) {
                 if (input == "exit") {
-                    if (*running_client) close();
+                    if (*running_client) close();   // If the input is equal to exit and the client session is still up then close
                     else std::cerr << "Do you want to reconnect? (y/n): ";
-                } else if (input == "y") {
+                } else if (input == "y") {     // If the input is equal to y then the thread sets the value of stop to false and notifies the input to the client thread
                     std::lock_guard lg(input_mutex);
                     *stop = false;
                     cv.notify_all();
                     break;
-                } else if (input == "n") {
+                } else if (input == "n") {     // If the input is equal to y then the thread sets the value of stop to true and notifies the input to the client thread
                     std::lock_guard lg(input_mutex);
                     *stop = true;
                     cv.notify_all();
                     break;
-                } else if (!*running_client){
+                } else if (!*running_client){   // If the input is not an expected input and the client is not running anymore then repeat the question
                     std::cerr << "Do you want to reconnect? (y/n): ";
                 }
             } else {
                 std::lock_guard lg(input_mutex);
-                if (!user_done) {
+                if (!user_done) {   // If the username has not been inserted then its set function is called on the input
                     set_username(input);
                     user_done = true;
                     std::cout << "Insert password: ";
-                } else {
+                } else {    // else the password set function is called on the input
                     set_password(input);
                     cred_done = true;
-                    cv.notify_all();
+                    cv.notify_all();    // Waking up the client thread in the get_credentials function
                 }
             }
         }
@@ -208,7 +209,7 @@ void Client::handle_connection_failures() {
         if (!ec) {
             delay = boost::chrono::milliseconds(5000);  // Resetting delay to the initial value
             get_credentials();
-            do_read_body();
+            do_read();
         } else {
             auto wait = boost::chrono::milliseconds(delay);
             std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
@@ -245,7 +246,7 @@ void Client::handle_reading_failures() {
                 login_message.put_credentials(cred.username, cred.password);
                 enqueue_msg(login_message);
                 do_start_directory_watcher();
-                do_read_body();
+                do_read();
             } catch (const boost::property_tree::ptree_error &err) {
                 std::cerr << "Error while reconnecting. ";
                 close();

@@ -13,7 +13,7 @@ class Message {
 
 public:
 
-    // Allocating memory and constructing a msgPtr before the do_read_body calls a get_msg_ptr on it
+    // Allocating memory and constructing a msgPtr before the do_read calls a get_msg_ptr on it
     Message();
 
     // Assigning the content of the json (pt) to the msgPtr

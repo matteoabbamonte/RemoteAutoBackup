@@ -35,7 +35,7 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     Database_Connection db;
 
     // Reads the message from the socket and calls the appropriate handler
-    void do_read_body();
+    void do_read();
 
     // Writes the available messages from the queue to the socket
     void do_write();

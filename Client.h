@@ -36,11 +36,11 @@ class Client {
     std::mutex wq_mutex;
     std::condition_variable cv;
 
-    // Opens the connection with the server, calling the get_credentials and the do_read_body right after
+    // Opens the connection with the server, calling the get_credentials and the do_read right after
     void do_connect();
 
     // Reads the message from the socket and calls the appropriate handler
-    void do_read_body();
+    void do_read();
 
     // Writes the available messages from the queue to the socket
     void do_write();
@@ -66,7 +66,7 @@ class Client {
     // Manages the errors occurred in the do_connect
     void handle_connection_failures();
 
-    // Manages the errors occurred in the do_read_body
+    // Manages the errors occurred in the do_read
     void handle_reading_failures();
 
     // Manages the sending of the message containing all the local paths
