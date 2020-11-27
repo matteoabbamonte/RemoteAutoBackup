@@ -2,12 +2,12 @@
 
 enum status_type {
     authorized = 0,
-    unauthorized = 1,       // created=1
-    created = 2,            // updated=2
-    updated = 3,            // erased=3
-    erased = 4,             // no_need=4
-    no_need = 5,            // in_need=5
-    in_need = 6,            // unauthorized=6
+    unauthorized = 1,
+    created = 2,
+    updated = 3,
+    erased = 4,
+    no_need = 5,
+    in_need = 6,
     service_unavailable = 7,
     wrong_action = 8
 };

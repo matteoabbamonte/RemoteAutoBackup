@@ -56,7 +56,7 @@ std::string Server_Session::do_write_element(action_type header, const std::stri
         boost::property_tree::ptree pt;
         std::stringstream data_stream;
         data_stream << data;
-        boost::property_tree::json_parser::read_json(data_stream, pt);      //Re-creating json from data stream
+        boost::property_tree::read_json(data_stream, pt);      //Re-creating json from data stream
         auto path = pt.get<std::string>("path");
         auto hash = pt.get<std::size_t>("hash");
         bool isFile = pt.get<bool>("isFile");
@@ -156,7 +156,7 @@ void Server_Session::request_handler(Message msg) {
                     boost::property_tree::ptree pt;
                     std::stringstream data_stream;
                     data_stream << data;
-                    boost::property_tree::json_parser::read_json(data_stream, pt);  // Re-creating json from data stream
+                    boost::property_tree::read_json(data_stream, pt);  // Re-creating json from data stream
                     auto found_avail = db.get_paths(paths, username);
                     if (std::get<1>(found_avail)) {     //  If the database is available
                         if (std::get<0>(found_avail)) {     // It compares the maps and answers either with in_need o no_need
@@ -199,7 +199,7 @@ void Server_Session::request_handler(Message msg) {
                     boost::property_tree::ptree pt;
                     std::stringstream data_stream;
                     data_stream << data;
-                    boost::property_tree::json_parser::read_json(data_stream, pt);  // Re-creating json from data stream
+                    boost::property_tree::read_json(data_stream, pt);  // Re-creating json from data stream
                     auto path = pt.get<std::string>("path");
                     do_remove_element(path);
                     status_type = 4;

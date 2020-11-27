@@ -321,7 +321,6 @@ void Client::handle_status(Message msg) {
         msg.decode_message();
         auto status = static_cast<status_type>(msg.get_header());   /* Change header to status */
         std::string data = msg.get_data();
-        msg.clear();
         switch (status) {
             case status_type::in_need : {
                 std::string separator = "||";
