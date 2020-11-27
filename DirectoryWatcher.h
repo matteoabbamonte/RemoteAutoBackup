@@ -2,7 +2,7 @@
 
 #include <boost/chrono.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/thread/thread.hpp>
+#include <boost/thread.hpp>
 #include <iostream>
 #include <map>
 #include <string>

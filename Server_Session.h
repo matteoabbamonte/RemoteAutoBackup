@@ -34,7 +34,7 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     std::mutex wq_mutex;
     Database_Connection db;
 
-    // Reads the message from the socket
+    // Reads the message from the socket and calls the appropriate handler
     void do_read_body();
 
     // Writes the available messages from the queue to the socket
