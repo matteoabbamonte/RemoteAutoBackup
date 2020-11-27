@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <boost/asio.hpp>
+#include <boost/chrono.hpp>
 #include <boost/thread.hpp>
 #include <boost/property_tree/exceptions.hpp>
 #include <queue>

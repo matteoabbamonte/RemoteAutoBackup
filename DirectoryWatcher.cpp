@@ -23,10 +23,10 @@ void DirectoryWatcher::start(const std::function<void (std::string, FileStatus, 
         // Check if a file was created or modified
         for (boost::filesystem::directory_entry& element : boost::filesystem::recursive_directory_iterator(path_to_watch)) {
             auto lats_time_mod = boost::filesystem::last_write_time(element);
-            if (paths.find(element.path().string()) == paths.end()) {                  /* Element creation */
+            if (paths.find(element.path().string()) == paths.end()) {   // Element creation
                 paths[element.path().string()] = {lats_time_mod, boost::filesystem::is_regular_file(element), make_hash(element)};
                 action(element.path().string(), FileStatus::created, boost::filesystem::is_regular_file(element));
-            } else if (paths[element.path().string()].lastEdit != lats_time_mod) {      /* Element modification */
+            } else if (paths[element.path().string()].lastEdit != lats_time_mod) {      // Element modification
                 paths[element.path().string()] = {lats_time_mod, boost::filesystem::is_regular_file(element), make_hash(element)};
                 action(element.path().string(), FileStatus::modified, boost::filesystem::is_regular_file(element));
             }

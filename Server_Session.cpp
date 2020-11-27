@@ -1,5 +1,4 @@
 #include "Server_Session.h"
-#include "Base64/base64.h"
 
 Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
 
@@ -56,7 +55,7 @@ std::string Server_Session::do_write_element(action_type header, const std::stri
         boost::property_tree::ptree pt;
         std::stringstream data_stream;
         data_stream << data;
-        boost::property_tree::read_json(data_stream, pt);      //Re-creating json from data stream
+        boost::property_tree::read_json(data_stream, pt);      // Re-creating json from data stream
         auto path = pt.get<std::string>("path");
         auto hash = pt.get<std::size_t>("hash");
         bool isFile = pt.get<bool>("isFile");
@@ -124,7 +123,7 @@ Diff_paths Server_Session::compare_paths(ptree &client_pt) {
 void Server_Session::request_handler(Message msg) {
     Message response_msg;
     std::string response_str;
-    int status_type = 999;      // setting status type to an unreachable (wrong) value
+    int status_type = 999;      // Setting status type to an unreachable (wrong) value
     try {
         msg.decode_message();
         auto header = static_cast<action_type>(msg.get_header());

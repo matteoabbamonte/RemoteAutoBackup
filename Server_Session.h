@@ -8,6 +8,7 @@
 #include <boost/property_tree/exceptions.hpp>
 #include <queue>
 #include <sqlite3.h>
+#include "Base64/base64.h"
 #include "Database_Connection.h"
 #include "Headers.h"
 #include "Message.h"
@@ -33,27 +34,36 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     std::mutex wq_mutex;
     Database_Connection db;
 
-    void do_read_body();    // Reads the message from the socket
+    // Reads the message from the socket
+    void do_read_body();
 
-    void do_write();    // Writes the available messages from the queue to the socket
+    // Writes the available messages from the queue to the socket
+    void do_write();
 
-    void enqueue_msg(const Message& msg);   // Adds messages to the write queue
+    // Adds messages to the write queue
+    void enqueue_msg(const Message& msg);
 
-    std::string do_write_element(action_type header, const std::string& data);    // Creates or updates file or directories received
+    // Creates or updates file or directories received
+    std::string do_write_element(action_type header, const std::string& data);
 
-    void do_remove_element(const std::string& path);    // Deletes file or directories received
+    // Deletes file or directories received
+    void do_remove_element(const std::string& path);
 
-    void update_paths(const std::string& path, size_t hash);    // Updates the paths map
+    // Updates the paths map
+    void update_paths(const std::string& path, size_t hash);
 
-    Diff_paths compare_paths(ptree &client_pt);    // Compares the local map with the one sent by the client
+    // Compares the local map with the one sent by the client
+    Diff_paths compare_paths(ptree &client_pt);
 
-    void request_handler(Message msg);  // Decodes message and takes the needed actions
+    // Decodes message and takes the needed actions
+    void request_handler(Message msg);
 
 public:
 
     Server_Session(tcp::socket &socket);
 
-    void start();   // Calls for the first time the function that reads from the socket
+    // Calls for the first time the function that reads from the socket
+    void start();
 
     ~Server_Session();
 

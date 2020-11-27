@@ -8,7 +8,7 @@ Message::Message() {
 void Message::zip_message() {
     try {
         std::stringstream message_stream;
-        boost::property_tree::write_json(message_stream, pt);  //saving the json in a stream
+        boost::property_tree::write_json(message_stream, pt);  // Saving the json in a stream
         msgPtr = std::make_shared<std::string>(message_stream.str());
     } catch (const boost::property_tree::ptree_error &err) {
         throw;

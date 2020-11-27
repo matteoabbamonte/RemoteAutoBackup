@@ -186,7 +186,7 @@ void Client::do_start_watcher() {
                 if (action_type <= 4) {
                     try {
                         std::stringstream file_stream;
-                        boost::property_tree::write_json(file_stream, pt, false);
+                        boost::property_tree::write_json(file_stream, pt, false);   // Saving the json in a stream
                         std::string file_string(file_stream.str());
                         Message write_msg;
                         write_msg.encode_message(action_type, file_string);
@@ -306,7 +306,7 @@ void Client::handle_synch() {
             pt.add(path, tuple.second.hash);
         }
         std::stringstream map_stream;
-        boost::property_tree::write_json(map_stream, pt);
+        boost::property_tree::write_json(map_stream, pt, false);   // Saving the json in a stream
         std::string map_string = map_stream.str();
         Message write_msg;
         write_msg.encode_message(1, map_string);
@@ -338,7 +338,7 @@ void Client::handle_status(Message msg) {
                     read_file(relative_path, path, dw_ptr->getNode(relative_path).isFile, pt);
                     /* Writing message */
                     std::stringstream file_stream;
-                    boost::property_tree::write_json(file_stream, pt, false);
+                    boost::property_tree::write_json(file_stream, pt, false);   // Saving the json in a stream
                     std::string file_string(file_stream.str());
                     Message write_msg;
                     write_msg.encode_message(2, file_string);
