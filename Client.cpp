@@ -5,7 +5,7 @@
 Client::Client(boost::asio::io_context& io_context, tcp::resolver::results_type  endpoints,
         std::shared_ptr<bool> &running_client, std::string path_to_watch, std::shared_ptr<DirectoryWatcher> &dw, std::shared_ptr<bool> &stop, std::shared_ptr<bool> &running_watcher)
         : io_context_(io_context), socket_(io_context), endpoints(std::move(endpoints)), running_client(running_client),
-        path_to_watch(path_to_watch), dw_ptr(dw), stop(stop), running_watcher(running_watcher), delay(5000) {
+        path_to_watch(std::move(path_to_watch)), dw_ptr(dw), stop(stop), running_watcher(running_watcher), delay(5000) {
             do_connect();
 }
 
@@ -203,39 +203,6 @@ void Client::do_start_directory_watcher() {
     });
 }
 
-void Client::read_file(const std::string& relative_path, const std::string& path, boost::property_tree::ptree& pt) {
-    std::ifstream inFile;
-    bool reopen_done = false;
-    do {
-        try {
-            inFile.open(relative_path, std::ios::in|std::ios::binary);
-            std::vector<BYTE> buffer_vec;
-            char ch;
-            while (inFile.get(ch)) buffer_vec.emplace_back(ch);
-            std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
-            pt.clear();
-            pt.add("path", path);
-            pt.add("hash", dw_ptr->getNode(relative_path).hash);
-            pt.add("isFile", dw_ptr->getNode(relative_path).isFile);
-            pt.add("content", encodedData);
-        } catch (const std::ios_base::failure &err) {
-            if (!reopen_done) {
-                boost::this_thread::sleep_for(boost::chrono::milliseconds(2000));
-                reopen_done = true;
-            } else {
-                throw;
-            }
-        } catch (const boost::property_tree::ptree_bad_data &err) {
-            if (!reopen_done) {
-                boost::this_thread::sleep_for(boost::chrono::milliseconds(2000));
-                reopen_done = true;
-            } else {
-                throw;
-            }
-        }
-    } while (reopen_done);
-}
-
 void Client::handle_connection_failures() {
     boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {
         if (!ec) {
@@ -395,6 +362,39 @@ void Client::handle_status(Message msg) {
         std::cerr << "Error while synchronizing with server, closing session. " << std::endl;
         close();
     }
+}
+
+void Client::read_file(const std::string& relative_path, const std::string& path, boost::property_tree::ptree& pt) {
+    std::ifstream inFile;
+    bool reopen_done = false;
+    do {
+        try {
+            inFile.open(relative_path, std::ios::in|std::ios::binary);
+            std::vector<BYTE> buffer_vec;
+            char ch;
+            while (inFile.get(ch)) buffer_vec.emplace_back(ch);
+            std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
+            pt.clear();
+            pt.add("path", path);
+            pt.add("hash", dw_ptr->getNode(relative_path).hash);
+            pt.add("isFile", dw_ptr->getNode(relative_path).isFile);
+            pt.add("content", encodedData);
+        } catch (const std::ios_base::failure &err) {
+            if (!reopen_done) {
+                boost::this_thread::sleep_for(boost::chrono::milliseconds(2000));
+                reopen_done = true;
+            } else {
+                throw;
+            }
+        } catch (const boost::property_tree::ptree_bad_data &err) {
+            if (!reopen_done) {
+                boost::this_thread::sleep_for(boost::chrono::milliseconds(2000));
+                reopen_done = true;
+            } else {
+                throw;
+            }
+        }
+    } while (reopen_done);
 }
 
 void Client::close() {

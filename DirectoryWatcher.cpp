@@ -20,15 +20,19 @@ void DirectoryWatcher::start(const std::function<void (std::string, FileStatus, 
                 it = paths.erase(it);
             } else it++;
         }
-        for (boost::filesystem::directory_entry& element : boost::filesystem::recursive_directory_iterator(path_to_watch)) {     // Check recursively if a file was created or modified
-            auto last_time_edit = boost::filesystem::last_write_time(element);
-            if (paths.find(element.path().string()) == paths.end()) {   // If the element is not present in the map, then it has been created
-                paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
-                action(element.path().string(), FileStatus::created, boost::filesystem::is_regular_file(element));      // The command to create that specific node is sent to the server
-            } else if (paths[element.path().string()].lastEdit != last_time_edit) {      // Else if the element in the map has a different last_time_edit, then it has been updated
-                paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
-                action(element.path().string(), FileStatus::modified, boost::filesystem::is_regular_file(element));     // The command to modify that specific node is sent to the server
+        try {
+            for (boost::filesystem::directory_entry& element : boost::filesystem::recursive_directory_iterator(path_to_watch)) {     // Check recursively if a file was created or modified
+                auto last_time_edit = boost::filesystem::last_write_time(element);
+                if (paths.find(element.path().string()) == paths.end()) {   // If the element is not present in the map, then it has been created
+                    paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
+                    action(element.path().string(), FileStatus::created, boost::filesystem::is_regular_file(element));      // The command to create that specific node is sent to the server
+                } else if (paths[element.path().string()].lastEdit != last_time_edit) {      // Else if the element in the map has a different last_time_edit, then it has been updated
+                    paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
+                    action(element.path().string(), FileStatus::modified, boost::filesystem::is_regular_file(element));     // The command to modify that specific node is sent to the server
+                }
             }
+        } catch (const boost::filesystem::filesystem_error &err) {
+            std::cout << "Element deleted before its insertion in the local map." << std::endl;
         }
     }
 }
