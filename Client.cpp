@@ -127,56 +127,60 @@ void Client::do_start_input_reader() {
 }
 
 void Client::do_start_directory_watcher() {
-    if (!*running_watcher) *running_watcher = true;
+    if (!*running_watcher) *running_watcher = true;    // If the reconnection attempt went smoothly then restart the directory watcher
     directory_watcher = boost::thread([this](){
         dw_ptr->start([this](std::string path, FileStatus status, bool isFile) {
             if (boost::filesystem::is_regular_file(boost::filesystem::path(path))   // Process only regular files, all other file types are ignored
             || boost::filesystem::is_directory(boost::filesystem::path(path)) || status == FileStatus::erased) {
                 boost::property_tree::ptree pt;
-                int action_type = 999;
-                std::string relative_path = path;
-                path = path.substr(path_to_watch.size() + 1);
-                while (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");
+                int action_type = 999;     // Setting action type to an unreachable (wrong) value
+                std::string path_to_send = path.substr(path_to_watch.size() + 1);   // Preparing only the name of the file or directory
+                while (path_to_send.find('.') < path_to_send.size())
+                    path_to_send.replace(path_to_send.find('.'), 1, ":");
                 switch (status) {
                     case FileStatus::created : {
-                        if (isFile) std::cout << "File created: " << path << '\n';
-                        else std::cout << "Directory created: " << path << '\n';
+                        if (isFile) std::cout << "File created: " << path_to_send << '\n';
+                        else std::cout << "Directory created: " << path_to_send << '\n';
                         try {
-                            read_file(relative_path, path, pt);
+                            read_file(path, path_to_send, pt);
                             action_type = 2;
-                        } catch (...) {
-                            std::cerr << "Error while opening the file: " << path << " It won't be sent." << std::endl;
-                            paths_to_ignore.emplace_back(path);
+                        } catch (const std::ios_base::failure &err) {
+                            std::cerr << "Error while opening the file: " << path_to_send << " It won't be sent." << std::endl;
+                            paths_to_ignore.emplace_back(path_to_send);    // Adding the path of the file to the black list for removal
+                        } catch (const boost::property_tree::ptree_bad_data &err) {
+                            std::cerr << "Error while parsing the file: " << path_to_send << " It won't be sent." << std::endl;
+                            paths_to_ignore.emplace_back(path_to_send);    // Adding the path of the file to the black list for removal
                         }
                         break;
                     }
                     case FileStatus::modified : {
-                        while (relative_path.find(':') < relative_path.size())
-                            relative_path.replace(relative_path.find(':'), 1, ".");
                         if (isFile) {
-                            std::cout << "File modified: " << relative_path << '\n';
+                            std::cout << "File modified: " << path << '\n';
                             try {
-                                read_file(relative_path, path, pt);
+                                read_file(path, path_to_send, pt);
                                 action_type = 3;
-                            } catch (...) {
-                                std::cerr << "Error while opening the file: " << path << "\nIt won't be sent." << std::endl;
-                                paths_to_ignore.emplace_back(path);
+                            } catch (const std::ios_base::failure &err) {
+                                std::cerr << "Error while opening the file: " << path_to_send << " It won't be sent." << std::endl;
+                                paths_to_ignore.emplace_back(path_to_send);    // Adding the path of the file to the black list for removal
+                            } catch (const boost::property_tree::ptree_bad_data &err) {
+                                std::cerr << "Error while parsing the file: " << path_to_send << " It won't be sent." << std::endl;
+                                paths_to_ignore.emplace_back(path_to_send);    // Adding the path of the file to the black list for removal
                             }
                         } else {
-                            std::cout << "Directory modified: " << relative_path << '\n';
+                            std::cout << "Directory modified: " << path << '\n';
                         }
                         break;
                     }
                     case FileStatus::erased : {
                         try {
-                            if (std::find(paths_to_ignore.begin(), paths_to_ignore.end(), path) == paths_to_ignore.end()) {
-                                pt.add("path", path);
+                            if (std::find(paths_to_ignore.begin(), paths_to_ignore.end(), path_to_send) == paths_to_ignore.end()) {    // If the path is not blacklisted then send the delete command
+                                pt.add("path", path_to_send);
                                 action_type = 4;
-                                if (isFile) std::cout << "File erased: " << path << '\n';
-                                else std::cout << "Directory erased: " << path << '\n';
+                                if (isFile) std::cout << "File erased: " << path_to_send << '\n';
+                                else std::cout << "Directory erased: " << path_to_send << '\n';
                             }
                         } catch (const boost::property_tree::ptree_error &err) {
-                            std::cerr << "Error while executing the action on the file " << path << ", closing session. " << std::endl;
+                            std::cerr << "Error while executing the action on the file " << path_to_send << ", closing session. " << std::endl;
                             close();
                         }
                         break;
@@ -184,18 +188,18 @@ void Client::do_start_directory_watcher() {
                     default :
                         std::cout << "Error! Unknown file status.\n";
                 }
-                //writing message
-                if (action_type <= 4) {
+                // Writing message
+                if (action_type <= 4) {    // If no errors occurred
                     try {
                         std::stringstream file_stream;
-                        boost::property_tree::write_json(file_stream, pt, false);   // Saving the json in a stream
+                        boost::property_tree::write_json(file_stream, pt, false);   // Saving the json in a stream, "false" in order to avoid the '\n' before the '}' at the end
                         std::string file_string(file_stream.str());
                         Message write_msg;
                         write_msg.encode_message(action_type, file_string);
                         enqueue_msg(write_msg);
                     } catch (const boost::property_tree::ptree_error &err) {
-                        paths_to_ignore.emplace_back(path);
-                        std::cerr << "Error while executing the action on the file " << path << ", it won't be sent. " << std::endl;
+                        paths_to_ignore.emplace_back(path_to_send);    // Adding the path of the file to the black list for removal
+                        std::cerr << "Error while executing the action on the file " << path_to_send << ", it won't be sent. " << std::endl;
                         std::cerr << "If you want to resynchronize write \'exit\'." << std::endl;
                     }
                 }
@@ -205,7 +209,7 @@ void Client::do_start_directory_watcher() {
 }
 
 void Client::handle_connection_failures() {
-    boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {
+    boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {    // Retries the connection request to the socket
         if (!ec) {
             delay = boost::chrono::milliseconds(5000);  // Resetting delay to the initial value
             get_credentials();
@@ -219,18 +223,18 @@ void Client::handle_connection_failures() {
                 std::cerr << "Do you want to reconnect? (y/n): ";
                 std::string input;
                 while (std::cin >> input) {
-                    if (!std::cin) close();
-                    if (input == "n") {
+                    if (!std::cin) close();    // If there is any error during the input process then close.
+                    if (input == "n") {    // If the input is 'n' then stops the while in the main
                         *stop = true;
                         break;
-                    } else if (input == "y") {
+                    } else if (input == "y") {     // If the input is 'y' then take another round in the while in the main
                         break;
                     } else {
                         std::cerr << "Do you want to reconnect? (y/n): ";
                     }
                 }
             } else {
-                delay *= 2;
+                delay *= 2;    // if the wait is not over the limit and there is an error then double the delay and recall the function
                 handle_connection_failures();
             }
         }
@@ -238,15 +242,15 @@ void Client::handle_connection_failures() {
 }
 
 void Client::handle_reading_failures() {
-    boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {
+    boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {    // Retries the connection request to the socket
         if (!ec) {
             try {
                 delay = boost::chrono::milliseconds(5000);  // Resetting delay to the initial value
                 Message login_message;
-                login_message.put_credentials(cred.username, cred.password);
+                login_message.put_credentials(cred.username, cred.password);    // Re-creating the login message with the saved credentials in order to automatize the reconnection attempt
                 enqueue_msg(login_message);
-                do_start_directory_watcher();
-                do_read();
+                do_start_directory_watcher();   // Restarting the directory watcher if the reconnection goes well
+                do_read();   // Restarting the reading from socket procedure if the reconnection goes well
             } catch (const boost::property_tree::ptree_error &err) {
                 std::cerr << "Error while reconnecting. ";
                 close();
@@ -259,7 +263,7 @@ void Client::handle_reading_failures() {
                 std::cerr << "Server unavailable. ";
                 close();
             } else {
-                delay *= 2;
+                delay *= 2;    // If the wait is not over the limit and there is an error then double the delay and recall the function
                 handle_reading_failures();
             }
         }
@@ -270,14 +274,14 @@ void Client::handle_sync() {
     try {
         delay = boost::chrono::milliseconds(5000);  // Resetting delay to the initial value
         boost::property_tree::ptree pt;
-        for (const auto& tuple : dw_ptr->getPaths()) {
+        for (const auto& tuple : dw_ptr->getPaths()) {  // Looping over the path map
             std::string path(tuple.first);
-            path = path.substr(path_to_watch.size()+1);
-            while (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");
-            pt.add(path, tuple.second.hash);
+            path = path.substr(path_to_watch.size()+1);    // Taking only the file or directory name
+            while (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");    // Making the path compatible with json polices
+            pt.add(path, tuple.second.hash);    // Adding the node to the json
         }
         std::stringstream map_stream;
-        boost::property_tree::write_json(map_stream, pt, false);   // Saving the json in a stream
+        boost::property_tree::write_json(map_stream, pt, false);   // Saving the json in a stream, "false" in order to avoid the '\n' before the '}' at the end
         std::string map_string = map_stream.str();
         Message write_msg;
         write_msg.encode_message(1, map_string);
@@ -290,26 +294,25 @@ void Client::handle_sync() {
 void Client::handle_status(Message msg) {
     try {
         msg.decode_message();
-        auto status = static_cast<status_type>(msg.get_header());   /* Change header to status */
+        auto status = static_cast<status_type>(msg.get_header());   // Casting header to status
         std::string data = msg.get_data();
         switch (status) {
             case status_type::in_need : {
                 std::string separator = "||";
-                size_t pos = 0;
-                std::string path;
+                size_t pos;
+                std::string path_to_send;
                 while ((pos = data.find(separator)) != std::string::npos) {
-                    path = data.substr(0, pos);
-                    data.erase(0, pos + separator.length());
-                    std::string relative_path = path;
-                    while (relative_path.find(':') < relative_path.size())
-                        relative_path.replace(relative_path.find(':'), 1, ".");
-                    std::ifstream inFile;
-                    relative_path = std::string(path_to_watch + "/") + relative_path;
+                    path_to_send = data.substr(0, pos);    // Taking the string section until the separator
+                    data.erase(0, pos + separator.length());    // Deleting the taken section of the string
+                    std::string path = path_to_send;
+                    while (path.find(':') < path.size())    // Resetting the original path format of the file
+                        path.replace(path.find(':'), 1, ".");
+                    path = std::string(path_to_watch + "/").append(path);   // Restoring the 'relative' path of the file or directory
                     boost::property_tree::ptree pt;
-                    read_file(relative_path, path, pt);
-                    /* Writing message */
+                    read_file(path, path_to_send, pt);
+                    // Writing message
                     std::stringstream file_stream;
-                    boost::property_tree::write_json(file_stream, pt, false);   // Saving the json in a stream
+                    boost::property_tree::write_json(file_stream, pt, false);   // Saving the json in a stream, "false" in order to avoid the '\n' before the '}' at the end
                     std::string file_string(file_stream.str());
                     Message write_msg;
                     write_msg.encode_message(2, file_string);
@@ -319,7 +322,7 @@ void Client::handle_status(Message msg) {
             }
             case status_type::unauthorized : {
                 std::cerr << "Unauthorized. ";
-                close();
+                close();    // If the login process failed then close the current session
                 break;
             }
             case status_type::service_unavailable : {
@@ -327,29 +330,29 @@ void Client::handle_status(Message msg) {
                 std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
                 boost::this_thread::sleep_for(delay);
                 Message last_message;
-                if (data == "login" || data == "Communication error") {
-                    last_message.put_credentials(cred.username, cred.password);
+                if (data == "login" || data == "Communication error") {               // If the server failed during login or any other process except from synchronization
+                    last_message.put_credentials(cred.username, cred.password);       // then send the credentials again to the server and retry the login
                     enqueue_msg(last_message);
                 } else {
-                    handle_sync();
+                    handle_sync();     // Else retry the synchronization procedure
                 }
                 if (wait.count() >= 20) {
                     std::cerr << "Server unavailable. ";
                     close();
                 } else {
-                        delay *= 2;
+                        delay *= 2;    // If the wait is not over the limit and there is an error then double the delay and restart the loop
                 }
                 break;
             }
             case status_type::wrong_action : {
                 std::cerr << "Wrong action. ";
-                close();
+                close();    // If a wrong action is recognized by the server and sent back then close the current session
                 break;
             }
             case status_type::authorized : {
                 std::cout << "Authorized." << std::endl;
-                do_start_directory_watcher();
-                handle_sync();
+                do_start_directory_watcher();   // Starting the directory watcher
+                handle_sync();  // Starting the synchronization procedure
                 break;
             }
             default : {
@@ -365,50 +368,36 @@ void Client::handle_status(Message msg) {
     }
 }
 
-void Client::read_file(const std::string& relative_path, const std::string& path, boost::property_tree::ptree& pt) {
+void Client::read_file(const std::string& path, const std::string& path_to_send, boost::property_tree::ptree& pt) {
     std::ifstream inFile;
-    bool reopen_done = false;
-    do {
-        try {
-            inFile.open(relative_path, std::ios::in|std::ios::binary);
-            std::vector<BYTE> buffer_vec;
-            char ch;
-            while (inFile.get(ch)) buffer_vec.emplace_back(ch);
-            std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
-            pt.clear();
-            pt.add("path", path);
-            pt.add("hash", dw_ptr->getNode(relative_path).hash);
-            pt.add("isFile", dw_ptr->getNode(relative_path).isFile);
-            pt.add("content", encodedData);
-        } catch (const std::ios_base::failure &err) {
-            if (!reopen_done) {
-                boost::this_thread::sleep_for(boost::chrono::milliseconds(2000));
-                reopen_done = true;
-            } else {
-                throw;
-            }
-        } catch (const boost::property_tree::ptree_bad_data &err) {
-            if (!reopen_done) {
-                boost::this_thread::sleep_for(boost::chrono::milliseconds(2000));
-                reopen_done = true;
-            } else {
-                throw;
-            }
-        }
-    } while (reopen_done);
+    try {
+        inFile.open(path, std::ios::in|std::ios::binary);   // Opening the file in binary mode
+        std::vector<BYTE> buffer_vec;   // Creating an unsigned char vector
+        char ch;
+        while (inFile.get(ch)) buffer_vec.emplace_back(ch);    // Adding every char read from the file to the vector
+        std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
+        pt.add("path", path_to_send);
+        pt.add("hash", dw_ptr->getNode(path).hash);    // Retrieving the hash from the Node_Info struct of the directory watcher
+        pt.add("isFile", dw_ptr->getNode(path).isFile);    // Retrieving the hash from the Node_Info struct of the directory watcher
+        pt.add("content", encodedData);
+    } catch (const std::ios_base::failure &err) {
+        throw;
+    } catch (const boost::property_tree::ptree_bad_data &err) {
+        throw;
+    }
 }
 
 void Client::close() {
-    *running_client = *running_watcher = false;
-    boost::asio::post(io_context_, [this]() {
-        if (socket_.is_open()) socket_.close();
-        std::unique_lock ul(input_mutex);
+    *running_client = *running_watcher = false;    // Closing watcher thread and setting the client session to not running
+    boost::asio::post(io_context_, [this]() {   // Requesting the io_context to invoke the given handler and returning immediately
+        if (socket_.is_open()) socket_.close();    // Closing the socket
+        std::unique_lock ul(input_mutex);   // Unique lock in order to use the cv wait
         std::cerr << "Do you want to reconnect? (y/n): ";
-        cv.wait(ul);
+        cv.wait(ul);    // Waiting for the user decision about the reconnection attempt
     });
 }
 
 Client::~Client() {
-    if (input_reader.joinable()) input_reader.join();
-    if (directory_watcher.joinable()) directory_watcher.join();
+    if (input_reader.joinable()) input_reader.join();   // Joining the input reader thread before shutting down
+    if (directory_watcher.joinable()) directory_watcher.join();   // Joining the directory watcher thread before shutting down
 }

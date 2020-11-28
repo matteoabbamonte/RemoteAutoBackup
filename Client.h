@@ -76,7 +76,7 @@ class Client {
     void handle_status(Message msg);
 
     // Encodes the content of the given file, and adds its info to the json that has to be sent
-    void read_file(const std::string& relative_path, const std::string& path, boost::property_tree::ptree& pt);
+    void read_file(const std::string& path, const std::string& path_to_send, boost::property_tree::ptree& pt);
 
     // Closes the socket client side, and waits for an answer to the reconnect attempt
     void close();
