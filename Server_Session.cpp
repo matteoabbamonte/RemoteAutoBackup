@@ -63,7 +63,7 @@ std::string Server_Session::do_write_element(action_type header, const std::stri
         std::string directory = std::string("../../server/") + std::string(username);
         if (!boost::filesystem::is_directory(directory)) boost::filesystem::create_directory(directory);
         std::string relative_path = directory + std::string("/") + std::string(path);   // Creating actual filesystem path
-        while (relative_path.find(':') < relative_path.size())
+        while (relative_path.find(':') < relative_path.size())     // Resetting the original path format of the file or directory
             relative_path.replace(relative_path.find(':'), 1, ".");
         if (header == action_type::create && !isFile) {     // Creating a directory with the specified name
             boost::filesystem::create_directory(relative_path);
@@ -89,7 +89,7 @@ void Server_Session::do_remove_element(const std::string& path) {
     paths.erase(path);
     std::string directory = std::string("../../server/") + std::string(username);
     std::string relative_path = directory + std::string("/") + std::string(path);
-    while (relative_path.find(':') < relative_path.size())
+    while (relative_path.find(':') < relative_path.size())     // Resetting the original path format of the file or directory
         relative_path.replace(relative_path.find(':'), 1, ".");
     boost::filesystem::remove_all(relative_path.data());
 }
@@ -217,9 +217,13 @@ void Server_Session::request_handler(Message msg) {
         }
     } catch (const boost::property_tree::ptree_error &err) {
         response_str = std::string("Communication error");
-        response_msg.encode_message(7, response_str);
-        enqueue_msg(response_msg);
-        std::cerr << "Server is not working properly." << std::endl;
+        try {
+            response_msg.encode_message(7, response_str);
+            enqueue_msg(response_msg);
+            std::cerr << "Server is not working properly." << std::endl;
+        } catch (const boost::property_tree::ptree_error &err) {
+            socket_.close();
+        }
     } catch (const std::ios_base::failure &err) {
         response_str = std::string("Communication error");
         response_msg.encode_message(7, response_str);
@@ -253,6 +257,6 @@ Server_Session::~Server_Session() {
                 }
                 if (delay.count() > 20000) std::cout << "Database not updated" << std::endl;
             }
-        }
+        } else break;
     }
 }

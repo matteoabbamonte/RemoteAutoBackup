@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
+#include <boost/timer/timer.hpp>
 #include <iostream>
 #include <queue>
 #include "Base64/base64.h"
@@ -28,7 +29,9 @@ class Client {
     boost::thread input_reader;
     boost::thread directory_watcher;
     std::string path_to_watch;
+    int reconnection_counter = 0;
     boost::chrono::milliseconds delay;
+    boost::timer::cpu_timer timer;
     std::shared_ptr<bool> running_client;
     std::shared_ptr<bool> running_watcher;
     std::shared_ptr<bool> stop;
@@ -68,6 +71,9 @@ class Client {
 
     /// Manages the errors occurred in the do_read
     void handle_reading_failures();
+
+    /// Manages the client status regarding the reconnection attempts frequency
+    void handle_reconnection_timer();
 
     /// Manages the sending of the message containing all the local paths
     void handle_sync();

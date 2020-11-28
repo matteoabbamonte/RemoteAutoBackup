@@ -135,7 +135,7 @@ void Client::do_start_directory_watcher() {
                 boost::property_tree::ptree pt;
                 int action_type = 999;     // Setting action type to an unreachable (wrong) value
                 std::string path_to_send = path.substr(path_to_watch.size() + 1);   // Preparing only the name of the file or directory
-                while (path_to_send.find('.') < path_to_send.size())
+                while (path_to_send.find('.') < path_to_send.size())    // Making the path compatible with json polices
                     path_to_send.replace(path_to_send.find('.'), 1, ":");
                 switch (status) {
                     case FileStatus::created : {
@@ -246,11 +246,13 @@ void Client::handle_reading_failures() {
         if (!ec) {
             try {
                 delay = boost::chrono::milliseconds(5000);  // Resetting delay to the initial value
+                timer.stop();   // Stopping the timer in order to measure the time between one failure and the following one
                 Message login_message;
                 login_message.put_credentials(cred.username, cred.password);    // Re-creating the login message with the saved credentials in order to automatize the reconnection attempt
                 enqueue_msg(login_message);
                 do_start_directory_watcher();   // Restarting the directory watcher if the reconnection goes well
                 do_read();   // Restarting the reading from socket procedure if the reconnection goes well
+                handle_reconnection_timer();
             } catch (const boost::property_tree::ptree_error &err) {
                 std::cerr << "Error while reconnecting. ";
                 close();
@@ -268,6 +270,20 @@ void Client::handle_reading_failures() {
             }
         }
     });
+}
+
+void Client::handle_reconnection_timer() {
+    if (timer.is_stopped()) timer.resume();
+    else timer.start();
+    reconnection_counter++;
+    auto elapsed_seconds = timer.elapsed().system/(1e9);    // Taking the number of elapsed nanoseconds scaled of 1 Billion
+    if (reconnection_counter > 1000 && elapsed_seconds <= 1) {     // If the frequency of reconnection attempts is too high then close
+        std::cerr << "Too many reconnection attempts." << std::endl;
+        close();
+    } else if (elapsed_seconds > 1) {   // Else if the frequency is not too high then reset the counter and the timer;
+        reconnection_counter = 0;
+        timer.elapsed().clear();
+    }
 }
 
 void Client::handle_sync() {
@@ -305,7 +321,7 @@ void Client::handle_status(Message msg) {
                     path_to_send = data.substr(0, pos);    // Taking the string section until the separator
                     data.erase(0, pos + separator.length());    // Deleting the taken section of the string
                     std::string path = path_to_send;
-                    while (path.find(':') < path.size())    // Resetting the original path format of the file
+                    while (path.find(':') < path.size())    // Resetting the original path format of the file or directory
                         path.replace(path.find(':'), 1, ".");
                     path = std::string(path_to_watch + "/").append(path);   // Restoring the 'relative' path of the file or directory
                     boost::property_tree::ptree pt;
