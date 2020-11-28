@@ -14,8 +14,8 @@ void Server_Session::do_read() {
                                       if (!ec) {
                                           std::string str(boost::asio::buffers_begin(read_buf.data()),
                                                           boost::asio::buffers_begin(read_buf.data()) + read_buf.size());
-                                          read_buf.consume(length);     // Crop buffer in order to let the next do_read work properly
-                                          str.resize(length);           // Crop in order to erase residuals taken from the buffer
+                                          read_buf.consume(length);     // Cropping buffer in order to let the next do_read work properly
+                                          str.resize(length);           // Cropping in order to erase residuals taken from the buffer
                                           Message msg;
                                           *msg.get_msg_ptr() = str;
                                           request_handler(msg);
@@ -47,7 +47,7 @@ void Server_Session::enqueue_msg(const Message &msg) {
     std::lock_guard lg(wq_mutex);       // Lock in order to guarantee thread safe push operation
     bool write_in_progress = !write_queue_s.empty();
     write_queue_s.push(msg);
-    if (!write_in_progress) do_write();     // Call do_write only if it is not already running
+    if (!write_in_progress) do_write();     // Calling do_write only if it is not already running
 }
 
 std::string Server_Session::do_write_element(action_type header, const std::string& data) {
@@ -158,7 +158,7 @@ void Server_Session::request_handler(Message msg) {
                     boost::property_tree::read_json(data_stream, pt);  // Re-creating json from data stream
                     auto found_avail = db.get_paths(paths, username);
                     if (std::get<1>(found_avail)) {     //  If the database is available
-                        if (std::get<0>(found_avail)) {     // It compares the maps and answers either with in_need o no_need
+                        if (std::get<0>(found_avail)) {     // Comparing the maps and answering either with in_need o no_need
                             Diff_paths diffs = compare_paths(pt);
                             if (diffs.toAdd.empty()) {
                                 status_type = 5;
@@ -172,7 +172,7 @@ void Server_Session::request_handler(Message msg) {
                                 for (const auto &path : diffs.toRem)
                                     do_remove_element(path);
                             }
-                        } else {    // It answers being in_need with the whole map
+                        } else {    // Answering being in_need with the whole map
                             status_type = 6;
                             for (const auto &path : pt) response_str += path.first + "||";
                         }
@@ -231,20 +231,20 @@ void Server_Session::request_handler(Message msg) {
 Server_Session::~Server_Session() {
     auto delay = boost::chrono::milliseconds(5000);
     while (delay.count() <= 20000) {
-        if (!paths.empty()) {   // If the paths map has been loaded with the db copy then update
+        if (!paths.empty()) {   // If the paths map has been loaded with the db copy, then update
             try {
                 bool result;
                 do {
                     result = db.update_db_paths(paths, username);
                     if (!result) {
                         std::cout << "Waiting for " << delay.count()/1000 << " sec..." << std::endl;
-                        boost::this_thread::sleep_for(delay);   // Wait for an increasing amount of time
+                        boost::this_thread::sleep_for(delay);   // Waiting for an increasing amount of time
                         delay *= 2;
                     }
-                } while (!result && delay.count() <= 20000);    // Loops until either the db is correctly accessed or the delay is too high
+                } while (!result && delay.count() <= 20000);    // Looping until either the db is correctly accessed or the delay is too high
                 if (result) std::cout << "Database successfully updated" << std::endl;
                 else std::cout << "Database not updated" << std::endl;
-                delay = boost::chrono::milliseconds(30000);     // Set the delay to a value that can break the external loop
+                delay = boost::chrono::milliseconds(30000);     // Setting the delay to a value that can break the external loop
             } catch (const boost::property_tree::ptree_error &err) {
                 std::cout << "Waiting for " << delay.count()/1000 << " sec..." << std::endl;
                 if (delay.count() <= 20000) {

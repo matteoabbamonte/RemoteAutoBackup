@@ -9,18 +9,18 @@ std::tuple<bool, bool> Database_Connection::check_database(const std::string& te
     bool db_availability = true;
     if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("SELECT COUNT(*) FROM Client WHERE username = '") + temp_username + std::string("' AND password = '") + password + std::string("';");
-        sqlite3_stmt *statement;    // It represents a single sql statement
-        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);  // Compiles the sql statement into a bytecode saved in statement structure
+        sqlite3_stmt *statement;    // Representing a single sql statement
+        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);  // Compiling the sql statement into a bytecode saved in statement structure
         if (res == SQLITE_OK) {
-            while(sqlite3_step(statement) == SQLITE_ROW) {    // Runs the bytecode of the sql statement
+            while (sqlite3_step(statement) == SQLITE_ROW) {    // Running the bytecode of the sql statement
                 count = sqlite3_column_int(statement, 0);
             }
         } else {
             std::cerr << "Database Error, " << sqlite3_errmsg(conn) << std::endl;
             db_availability = false;
         }
-        sqlite3_finalize(statement);    // Destroys the prepared statement object
-        sqlite3_close(conn);    // Closes the db connection and destroys the handle
+        sqlite3_finalize(statement);    // Destroying the prepared statement object
+        sqlite3_close(conn);    // Closing the db connection and destroying the handle
     } else {
         db_availability = false;
     }
@@ -35,9 +35,9 @@ std::tuple<bool, bool> Database_Connection::get_paths(std::map<std::string, std:
     bool db_availability = true;
     if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("SELECT paths FROM client WHERE username = '") + username + std::string("';");
-        sqlite3_stmt *statement;    // It represents a single sql statement
-        if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr) == SQLITE_OK) { // Compiles the sql statement into a bytecode saved in statement structure
-            if (sqlite3_step(statement) == SQLITE_ROW) {  // Runs the bytecode of the sql statement
+        sqlite3_stmt *statement;    // Representing a single sql statement
+        if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr) == SQLITE_OK) { // Compiling the sql statement into a bytecode saved in statement structure
+            if (sqlite3_step(statement) == SQLITE_ROW) {  // Running the bytecode of the sql statement
                 paths_ch = const_cast<unsigned char*>(sqlite3_column_text(statement, 0));   // Const cast in order to remove the const
             }
             if (paths_ch != nullptr) {
@@ -60,8 +60,8 @@ std::tuple<bool, bool> Database_Connection::get_paths(std::map<std::string, std:
             db_availability = false;
             std::cerr << "Database Connection Error, " << sqlite3_errmsg(conn) << std::endl;
         }
-        sqlite3_finalize(statement);    // Destroys the prepared statement object
-        sqlite3_close(conn);    // Closes the db connection and destroys the handle
+        sqlite3_finalize(statement);    // Destroying the prepared statement object
+        sqlite3_close(conn);    // Closing the db connection and destroying the handle
     } else {
         db_availability = false;
     }
@@ -85,16 +85,16 @@ bool Database_Connection::update_db_paths(std::map<std::string, std::size_t> &pa
     }
     if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("UPDATE client SET paths = '") + map_to_stream.str() + std::string("' WHERE username = '") + username + std::string("';");
-        sqlite3_stmt *statement;    // It represents a single sql statement
-        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);  // Compiles the sql statement into a bytecode saved in statement structure
+        sqlite3_stmt *statement;   // Representing a single sql statement
+        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);  // Compiling the sql statement into a bytecode saved in statement structure
         if (res == SQLITE_OK) {
-            sqlite3_step(statement);    // Runs the bytecode of the sql statement
+            sqlite3_step(statement);    // Running the bytecode of the sql statement
         } else {
             std::cerr << "Database Error, " << sqlite3_errmsg(conn) << std::endl;
             db_availability = false;
         }
-        sqlite3_finalize(statement);    // Destroys the prepared statement object
-        sqlite3_close(conn);        // Closes the db connection and destroys the handle
+        sqlite3_finalize(statement);    // Destroying the prepared statement object
+        sqlite3_close(conn);        // Closing the db connection and destroying the handle
     } else {
         db_availability = false;
     }

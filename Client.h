@@ -10,7 +10,7 @@
 
 using boost::asio::ip::tcp;
 
-// Struct for collecting the credentials related to a client
+/// Struct for collecting the credentials related to a client
 struct Credentials {
     std::string username;
     std::string password;
@@ -36,54 +36,54 @@ class Client {
     std::mutex wq_mutex;
     std::condition_variable cv;
 
-    // Opens the connection with the server, calling the get_credentials and the do_read right after
+    /// Opens the connection with the server, calling the get_credentials and the do_read right after
     void do_connect();
 
-    // Reads the message from the socket and calls the appropriate handler
+    /// Reads the message from the socket and calls the appropriate handler
     void do_read();
 
-    // Writes the available messages from the queue to the socket
+    /// Writes the available messages from the queue to the socket
     void do_write();
 
-    // Adds messages to the write queue
+    /// Adds messages to the write queue
     void enqueue_msg(const Message &msg);
 
-    // Starts the input_reader thread by calling the do_start_input_reader function, and waits for the credentials to be written
+    /// Starts the input_reader thread by calling the do_start_input_reader function, and waits for the credentials to be written
     void get_credentials();
 
-    // Sets the username in the Credentials structure
+    /// Sets the username in the Credentials structure
     void set_username(std::string &user);
 
-    // Sets the password in the Credentials structure
+    /// Sets the password in the Credentials structure
     void set_password(std::string &pwd);
 
-    // Creates the input_reader thread that manages all the user's input
+    /// Creates the input_reader thread that manages all the user's input
     void do_start_input_reader();
 
-    // Creates the directory_watcher thread that loops over the path_to_watch
+    /// Creates the directory_watcher thread that loops over the path_to_watch
     void do_start_directory_watcher();
 
-    // Manages the errors occurred in the do_connect
+    /// Manages the errors occurred in the do_connect
     void handle_connection_failures();
 
-    // Manages the errors occurred in the do_read
+    /// Manages the errors occurred in the do_read
     void handle_reading_failures();
 
-    // Manages the sending of the message containing all the local paths
+    /// Manages the sending of the message containing all the local paths
     void handle_sync();
 
-    // Manages the decoding of the message and takes the needed actions
+    /// Manages the decoding of the message and takes the needed actions
     void handle_status(Message msg);
 
-    // Encodes the content of the given file, and adds its info to the json that has to be sent
+    /// Encodes the content of the given file, and adds its info to the json that has to be sent
     void read_file(const std::string& path, const std::string& path_to_send, boost::property_tree::ptree& pt);
 
-    // Closes the socket client side, and waits for an answer to the reconnect attempt
+    /// Closes the socket client side, and waits for an answer to the reconnect attempt
     void close();
 
 public:
 
-    // Starts the connection request with the server
+    /// Starts the connection request with the server
     Client(boost::asio::io_context& io_context, tcp::resolver::results_type  endpoints,
            std::shared_ptr<bool> &running, std::string path_to_watch, std::shared_ptr<DirectoryWatcher> &dw, std::shared_ptr<bool> &stop, std::shared_ptr<bool> &watching);
 

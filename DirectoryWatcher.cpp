@@ -4,24 +4,24 @@ DirectoryWatcher::DirectoryWatcher(std::string path_to_watch, boost::chrono::mil
         : path_to_watch(std::move(path_to_watch)), delay(delay), running_watcher(watching) {
     std::lock_guard lg(paths_mutex);    // Lock in order to guarantee thread safe access to the map
     for (boost::filesystem::directory_entry &element : boost::filesystem::recursive_directory_iterator(this->path_to_watch)) {  // Recursively iterating to path_to_watch
-            auto last_time_edit = boost::filesystem::last_write_time(element);                                                           // in order to add the elements to the
-        paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };    // paths map
+            auto last_time_edit = boost::filesystem::last_write_time(element);                                                  // in order to add the elements to the paths map
+        paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
     }
 }
 
 void DirectoryWatcher::start(const std::function<void (std::string, FileStatus, bool)>& action) {
-    while (*running_watcher) {      // Loops until the client session is closed
+    while (*running_watcher) {      // Looping until the client session is closed
         boost::this_thread::sleep_for(delay);
         std::lock_guard lg(paths_mutex);     // Lock in order to guarantee thread safe access to the map
         auto it = paths.begin();
-        while (it != paths.end()) {     // Loops checking the differences between the map and the local filesystem and
+        while (it != paths.end()) {     // Looping checking the differences between the map and the local filesystem and
             if (!boost::filesystem::exists(it->first)) {    // If they're not aligned, the command to erase that specific node is sent to the server
                 action(it->first, FileStatus::erased, it->second.isFile);
                 it = paths.erase(it);
             } else it++;
         }
         try {
-            for (boost::filesystem::directory_entry& element : boost::filesystem::recursive_directory_iterator(path_to_watch)) {     // Check recursively if a file was created or modified
+            for (boost::filesystem::directory_entry& element : boost::filesystem::recursive_directory_iterator(path_to_watch)) {     // Checking recursively if a file was created or modified
                 auto last_time_edit = boost::filesystem::last_write_time(element);
                 if (paths.find(element.path().string()) == paths.end()) {   // If the element is not present in the map, then it has been created
                     paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
@@ -50,7 +50,7 @@ size_t DirectoryWatcher::node_size(boost::filesystem::directory_entry& element) 
     int size = 0;
     if (boost::filesystem::is_directory(element.path())) {
         for (boost::filesystem::directory_entry& sub_element : boost::filesystem::recursive_directory_iterator(element.path())) {
-            size += node_size(sub_element);     // Recursively calls node_size for each sub element of the directory
+            size += node_size(sub_element);     // Recursively calling node_size for each sub element of the directory
         }
     } else {
         size = boost::filesystem::file_size(element);

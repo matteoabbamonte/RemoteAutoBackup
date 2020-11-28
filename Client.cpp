@@ -11,7 +11,7 @@ Client::Client(boost::asio::io_context& io_context, tcp::resolver::results_type 
 
 void Client::do_connect() {
     std::cout << "Trying to connect..." << std::endl;
-    boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) { //asynchronous connection request
+    boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) { // Asynchronous connection request
         if (!ec) {
             get_credentials();
             do_read();
@@ -27,15 +27,15 @@ void Client::do_read() {
         if (!ec) {
             std::string str(boost::asio::buffers_begin(read_buf.data()),
                             boost::asio::buffers_begin(read_buf.data()) + read_buf.size());
-            read_buf.consume(length);     // Crop buffer in order to let the next do_read work properly
-            str.resize(length);           // Crop in order to erase residuals taken from the buffer
+            read_buf.consume(length);     // Cropping buffer in order to let the next do_read work properly
+            str.resize(length);           // Cropping in order to erase residuals taken from the buffer
             Message msg;
             *msg.get_msg_ptr() = str;
             handle_status(msg);
             do_read();
         } else {
             *running_watcher = false;   // Signaling to the directory watcher the end of the client session
-            if (*running_client) handle_reading_failures();   // If the socket has been closed by the server then call the EOF handler
+            if (*running_client) handle_reading_failures();   // If the socket has been closed by the server, then call the EOF handler
         }
     });
 }
@@ -60,7 +60,7 @@ void Client::enqueue_msg(const Message &msg) {
     std::lock_guard lg(wq_mutex);   // Lock in order to guarantee thread safe push operation
     bool write_in_progress = !write_queue_c.empty();
     write_queue_c.push(msg);
-    if (!write_in_progress) do_write();    // Call do_write only if it is not already running
+    if (!write_in_progress) do_write();    // Calling do_write only if it is not already running
 }
 
 void Client::get_credentials() {
@@ -92,31 +92,31 @@ void Client::do_start_input_reader() {
         bool cred_done = false;    // True if the credentials have been inserted
         std::cout << "Insert username: ";
         while (std::cin >> input) {
-            if (!std::cin) close();    // If there is any error during the input process then close.
+            if (!std::cin) close();    // If there is any error during the input process, then close.
             if (cred_done) {
                 if (input == "exit") {
-                    if (*running_client) close();   // If the input is equal to exit and the client session is still up then close
+                    if (*running_client) close();   // If the input is equal to 'exit' and the client session is still up, then close
                     else std::cerr << "Do you want to reconnect? (y/n): ";
-                } else if (input == "y") {     // If the input is equal to y then the thread sets the value of stop to false and notifies the input to the client thread
+                } else if (input == "y") {     // If the input is equal to 'y', then the thread sets the value of stop to false and notifies the input to the client thread
                     std::lock_guard lg(input_mutex);
                     *stop = false;
                     cv.notify_all();
                     break;
-                } else if (input == "n") {     // If the input is equal to y then the thread sets the value of stop to true and notifies the input to the client thread
+                } else if (input == "n") {     // If the input is equal to 'n', then the thread sets the value of stop to true and notifies the input to the client thread
                     std::lock_guard lg(input_mutex);
                     *stop = true;
                     cv.notify_all();
                     break;
-                } else if (!*running_client){   // If the input is not an expected input and the client is not running anymore then repeat the question
+                } else if (!*running_client){   // If the input is not an expected input and the client is not running anymore, then repeat the question
                     std::cerr << "Do you want to reconnect? (y/n): ";
                 }
             } else {
                 std::lock_guard lg(input_mutex);
-                if (!user_done) {   // If the username has not been inserted then its set function is called on the input
+                if (!user_done) {   // If the username has not been inserted, then its set function is called on the input
                     set_username(input);
                     user_done = true;
                     std::cout << "Insert password: ";
-                } else {    // else the password set function is called on the input
+                } else {            // Else the password set function is called on the input
                     set_password(input);
                     cred_done = true;
                     cv.notify_all();    // Waking up the client thread in the get_credentials function
@@ -127,7 +127,7 @@ void Client::do_start_input_reader() {
 }
 
 void Client::do_start_directory_watcher() {
-    if (!*running_watcher) *running_watcher = true;    // If the reconnection attempt went smoothly then restart the directory watcher
+    if (!*running_watcher) *running_watcher = true;    // If the reconnection attempt went smoothly, then restart the directory watcher
     directory_watcher = boost::thread([this](){
         dw_ptr->start([this](std::string path, FileStatus status, bool isFile) {
             if (boost::filesystem::is_regular_file(boost::filesystem::path(path))   // Process only regular files, all other file types are ignored
@@ -173,7 +173,7 @@ void Client::do_start_directory_watcher() {
                     }
                     case FileStatus::erased : {
                         try {
-                            if (std::find(paths_to_ignore.begin(), paths_to_ignore.end(), path_to_send) == paths_to_ignore.end()) {    // If the path is not blacklisted then send the delete command
+                            if (std::find(paths_to_ignore.begin(), paths_to_ignore.end(), path_to_send) == paths_to_ignore.end()) {    // If the path is not blacklisted, then send the delete command
                                 pt.add("path", path_to_send);
                                 action_type = 4;
                                 if (isFile) std::cout << "File erased: " << path_to_send << '\n';
@@ -209,7 +209,7 @@ void Client::do_start_directory_watcher() {
 }
 
 void Client::handle_connection_failures() {
-    boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {    // Retries the connection request to the socket
+    boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {    // Retrying the connection request to the socket
         if (!ec) {
             delay = boost::chrono::milliseconds(5000);  // Resetting delay to the initial value
             get_credentials();
@@ -223,18 +223,18 @@ void Client::handle_connection_failures() {
                 std::cerr << "Do you want to reconnect? (y/n): ";
                 std::string input;
                 while (std::cin >> input) {
-                    if (!std::cin) close();    // If there is any error during the input process then close.
-                    if (input == "n") {    // If the input is 'n' then stops the while in the main
+                    if (!std::cin) close();        // If there is any error during the input process, then close.
+                    if (input == "n") {            // If the input is 'n', then stops the while in the main
                         *stop = true;
                         break;
-                    } else if (input == "y") {     // If the input is 'y' then take another round in the while in the main
+                    } else if (input == "y") {     // If the input is 'y', then take another round in the while in the main
                         break;
                     } else {
                         std::cerr << "Do you want to reconnect? (y/n): ";
                     }
                 }
             } else {
-                delay *= 2;    // if the wait is not over the limit and there is an error then double the delay and recall the function
+                delay *= 2;    // If the wait is not over the limit and there is an error, then double the delay and recall the function
                 handle_connection_failures();
             }
         }
@@ -242,7 +242,7 @@ void Client::handle_connection_failures() {
 }
 
 void Client::handle_reading_failures() {
-    boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {    // Retries the connection request to the socket
+    boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {    // Retrying the connection request to the socket
         if (!ec) {
             try {
                 delay = boost::chrono::milliseconds(5000);  // Resetting delay to the initial value
@@ -263,7 +263,7 @@ void Client::handle_reading_failures() {
                 std::cerr << "Server unavailable. ";
                 close();
             } else {
-                delay *= 2;    // If the wait is not over the limit and there is an error then double the delay and recall the function
+                delay *= 2;    // If the wait is not over the limit and there is an error, then double the delay and recall the function
                 handle_reading_failures();
             }
         }
@@ -322,7 +322,7 @@ void Client::handle_status(Message msg) {
             }
             case status_type::unauthorized : {
                 std::cerr << "Unauthorized. ";
-                close();    // If the login process failed then close the current session
+                close();    // If the login process failed, then close the current session
                 break;
             }
             case status_type::service_unavailable : {
@@ -340,13 +340,13 @@ void Client::handle_status(Message msg) {
                     std::cerr << "Server unavailable. ";
                     close();
                 } else {
-                        delay *= 2;    // If the wait is not over the limit and there is an error then double the delay and restart the loop
+                        delay *= 2;    // If the wait is not over the limit and there is an error, then double the delay and restart the loop
                 }
                 break;
             }
             case status_type::wrong_action : {
                 std::cerr << "Wrong action. ";
-                close();    // If a wrong action is recognized by the server and sent back then close the current session
+                close();    // If a wrong action is recognized by the server and sent back, then close the current session
                 break;
             }
             case status_type::authorized : {
@@ -377,7 +377,7 @@ void Client::read_file(const std::string& path, const std::string& path_to_send,
         while (inFile.get(ch)) buffer_vec.emplace_back(ch);    // Adding every char read from the file to the vector
         std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
         pt.add("path", path_to_send);
-        pt.add("hash", dw_ptr->getNode(path).hash);    // Retrieving the hash from the Node_Info struct of the directory watcher
+        pt.add("hash", dw_ptr->getNode(path).hash);        // Retrieving the hash from the Node_Info struct of the directory watcher
         pt.add("isFile", dw_ptr->getNode(path).isFile);    // Retrieving the hash from the Node_Info struct of the directory watcher
         pt.add("content", encodedData);
     } catch (const std::ios_base::failure &err) {
@@ -388,16 +388,16 @@ void Client::read_file(const std::string& path, const std::string& path_to_send,
 }
 
 void Client::close() {
-    *running_client = *running_watcher = false;    // Closing watcher thread and setting the client session to not running
+    *running_client = *running_watcher = false;           // Closing watcher thread and setting the client session to not running
     boost::asio::post(io_context_, [this]() {   // Requesting the io_context to invoke the given handler and returning immediately
-        if (socket_.is_open()) socket_.close();    // Closing the socket
-        std::unique_lock ul(input_mutex);   // Unique lock in order to use the cv wait
+        if (socket_.is_open()) socket_.close();           // Closing the socket
+        std::unique_lock ul(input_mutex);             // Unique lock in order to use the cv wait
         std::cerr << "Do you want to reconnect? (y/n): ";
         cv.wait(ul);    // Waiting for the user decision about the reconnection attempt
     });
 }
 
 Client::~Client() {
-    if (input_reader.joinable()) input_reader.join();   // Joining the input reader thread before shutting down
+    if (input_reader.joinable()) input_reader.join();             // Joining the input reader thread before shutting down
     if (directory_watcher.joinable()) directory_watcher.join();   // Joining the directory watcher thread before shutting down
 }
