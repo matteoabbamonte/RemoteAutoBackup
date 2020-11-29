@@ -14,7 +14,7 @@ using boost::asio::ip::tcp;
 /// Struct for collecting the credentials related to a client
 struct Credentials {
     std::string username;
-    std::string password;
+    std::size_t password = 0;
 };
 
 class Client {

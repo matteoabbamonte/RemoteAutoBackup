@@ -32,10 +32,10 @@ public:
     std::string get_data();
 
     /// Extracting and getting the credentials from the json (pt)
-    std::tuple<std::string, std::string> get_credentials();
+    std::tuple<std::string, std::size_t> get_credentials();
 
     /// Inserting credentials into the message json (pt)
-    void put_credentials(const std::string& username, const std::string& password);
+    void put_credentials(const std::string& username, const std::size_t& password);
 
     /// Assembling the json that has to be saved in the final message
     void encode_message(int header, std::string& data);

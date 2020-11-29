@@ -46,21 +46,23 @@ std::string Message::get_data() {
     }
 }
 
-std::tuple<std::string, std::string> Message::get_credentials() {
+std::tuple<std::string, std::size_t> Message::get_credentials() {
     try {
         auto credentials_str = pt.get<std::string>("data");
         int separator_pos = credentials_str.find("||");
         auto username = credentials_str.substr(0, separator_pos);
-        auto password = credentials_str.substr(separator_pos+2);
-        return std::make_tuple(username, password);
+        std::stringstream pwd_stream(credentials_str.substr(separator_pos+2));
+        size_t pwd_hash;
+        pwd_stream >> pwd_hash;
+        return std::make_tuple(username, pwd_hash);
     } catch (const boost::property_tree::ptree_error &err) {
         throw;
     }
 }
 
-void Message::put_credentials(const std::string& username, const std::string& password) {
+void Message::put_credentials(const std::string& username, const std::size_t& password) {
     try {
-        std::string user_pass = std::string(username) + std::string("||") + std::string(password);
+        std::string user_pass = std::string(username) + std::string("||") + std::to_string(password);
         encode_message(0, user_pass);
     } catch (const boost::property_tree::ptree_error &err) {
         throw;
