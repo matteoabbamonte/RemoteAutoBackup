@@ -1,10 +1,8 @@
 #include "Backup_Server.h"
 
-
 Backup_Server::Backup_Server(boost::asio::io_context &io_context, const tcp::endpoint &endpoint) : acceptor(io_context, endpoint) {
     do_accept();
 };
-
 
 void Backup_Server::do_accept() {
     std::cout << "Waiting for incoming connections..." << std::endl;

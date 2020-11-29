@@ -10,6 +10,7 @@ using boost::asio::ip::tcp;
 class Backup_Server {
     tcp::acceptor acceptor;
 
+    /// Waits for and accepts incoming client connections
     void do_accept();
 
 public:
