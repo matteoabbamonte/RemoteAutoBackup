@@ -27,7 +27,7 @@ struct Diff_paths {
 class Server_Session : public std::enable_shared_from_this<Server_Session> {
     tcp::socket socket_;
     std::string username;
-    std::map<std::string, std::size_t> paths;
+    std::map<std::string, std::string> paths;
     std::queue<Message> write_queue_s;
     boost::asio::streambuf read_buf;
     std::mutex paths_mutex;
@@ -50,7 +50,7 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     void do_remove_element(const std::string& path);
 
     /// Updates the paths map
-    void update_paths(const std::string& path, size_t hash);
+    void update_paths(const std::string& path, const std::string& hash);
 
     /// Compares the local map with the one sent by the client
     Diff_paths compare_paths(ptree &client_pt);

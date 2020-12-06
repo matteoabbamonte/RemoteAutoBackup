@@ -57,7 +57,7 @@ std::string Server_Session::do_write_element(action_type header, const std::stri
         data_stream << data;
         boost::property_tree::read_json(data_stream, pt);      // Re-creating json from data stream
         auto path = pt.get<std::string>("path");
-        auto hash = pt.get<std::size_t>("hash");
+        auto hash = pt.get<std::string>("hash");
         bool isFile = pt.get<bool>("isFile");
         update_paths(path, hash);
         std::string directory = std::string("../../server/") + std::string(username);
@@ -94,7 +94,7 @@ void Server_Session::do_remove_element(const std::string& path) {
     boost::filesystem::remove_all(relative_path.data());
 }
 
-void Server_Session::update_paths(const std::string& path, size_t hash) {
+void Server_Session::update_paths(const std::string& path, const std::string& hash) {
     std::lock_guard lg(paths_mutex);    // Lock in order to guarantee thread safe operations on paths map
     paths[path] = hash;
 }
@@ -104,10 +104,9 @@ Diff_paths Server_Session::compare_paths(ptree &client_pt) {
     for (auto &entry : client_pt) {     // Scanning received map in search for new elements
         auto it = paths.find(entry.first);
         if (it != paths.end()) {
-            std::stringstream hash_stream(entry.second.data());
-            size_t entry_hash;
-            hash_stream >> entry_hash;
-            if (it->second != entry_hash) toAdd.emplace_back(entry.first);
+            std::string entry_hash(entry.second.data());
+            auto pt_hash = it->second;
+            if (pt_hash != entry_hash) toAdd.emplace_back(entry.first);
         } else {
             toAdd.emplace_back(entry.first);
         }

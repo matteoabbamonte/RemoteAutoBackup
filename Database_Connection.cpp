@@ -28,7 +28,7 @@ std::tuple<bool, bool> Database_Connection::check_database(const std::string& us
     return count_avail;
 }
 
-std::tuple<bool, bool> Database_Connection::get_paths(std::map<std::string, std::size_t> &paths, const std::string& username) {
+std::tuple<bool, bool> Database_Connection::get_paths(std::map<std::string, std::string> &paths, const std::string& username) {
     sqlite3* conn;  // Database handle defined by the sqlite3 structure
     unsigned char *paths_ch = nullptr;
     bool found = false;
@@ -48,7 +48,7 @@ std::tuple<bool, bool> Database_Connection::get_paths(std::map<std::string, std:
                     boost::property_tree::read_json(paths_stream, pt);  // Re-creating json from data stream
                     for (auto pair : pt) {  // For every field the key-value pairs are saved in the paths map
                         std::stringstream hash_stream(pair.second.data());
-                        size_t hash;
+                        std::string hash;
                         hash_stream >> hash;
                         paths[pair.first] = hash;
                     }
@@ -69,7 +69,7 @@ std::tuple<bool, bool> Database_Connection::get_paths(std::map<std::string, std:
     return found_avail;
 }
 
-bool Database_Connection::update_db_paths(std::map<std::string, std::size_t> &paths, const std::string& username) {
+bool Database_Connection::update_db_paths(std::map<std::string, std::string> &paths, const std::string& username) {
     std::cout << "Updating Database..." << std::endl;
     sqlite3* conn;  // Database handle defined by the sqlite3 structure
     bool db_availability = true;

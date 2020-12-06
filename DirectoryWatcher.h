@@ -1,8 +1,10 @@
 #pragma once
 
+#include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/chrono.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
+#include <openssl/md5.h>
 #include <iostream>
 #include <map>
 #include <string>
@@ -12,7 +14,7 @@
 struct Node_Info {
     std::time_t lastEdit;
     bool isFile;
-    std::size_t hash;
+    std::string hash;
 };
 
 class DirectoryWatcher {
@@ -26,7 +28,7 @@ class DirectoryWatcher {
     size_t node_size(boost::filesystem::directory_entry& element);
 
     /// Calculates the hash of the node passed as input
-    size_t make_hash(boost::filesystem::directory_entry& element);
+    std::string make_hash(boost::filesystem::directory_entry& element);
 
 public:
 

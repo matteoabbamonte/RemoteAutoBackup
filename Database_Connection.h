@@ -20,10 +20,10 @@ public:
 
     /// Given a username, it saves in the given map the paths taken from the db, returns two booleans
     /// representing the presence (or the absence) of the entry and the availability of the database
-    std::tuple<bool, bool> get_paths(std::map<std::string, std::size_t> &paths, const std::string& username);
+    std::tuple<bool, bool> get_paths(std::map<std::string, std::string> &paths, const std::string& username);
 
     /// Given a username it saves the paths contained in the map to the corresponding field in the db
     /// and returns the availability of the database
-    bool update_db_paths(std::map<std::string, std::size_t> &paths, const std::string& username);
+    bool update_db_paths(std::map<std::string, std::string> &paths, const std::string& username);
 };
 
