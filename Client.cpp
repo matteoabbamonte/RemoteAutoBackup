@@ -82,7 +82,7 @@ void Client::set_username(std::string &user) {
 }
 
 void Client::set_password(std::string &pwd) {
-    std::hash<std::string> hash;
+    boost::hash<std::string> hash;
     cred.password = hash(pwd);
 }
 

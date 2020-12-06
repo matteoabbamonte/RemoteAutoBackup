@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
+#include <boost/functional/hash.hpp>
 #include <boost/timer/timer.hpp>
 #include <iostream>
 #include <queue>
