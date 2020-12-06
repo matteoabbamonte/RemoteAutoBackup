@@ -58,10 +58,23 @@ size_t DirectoryWatcher::node_size(boost::filesystem::directory_entry& element) 
     return size;
 }
 
-size_t DirectoryWatcher::make_hash(boost::filesystem::directory_entry& element) {
+std::string DirectoryWatcher::make_hash(boost::filesystem::directory_entry& element) {
     auto last_time_edit = boost::filesystem::last_write_time(element);
     boost::hash<std::string> hash;
-    std::cout << std::to_string(last_time_edit) << std::endl;
     std::string info = element.path().string() + std::to_string(last_time_edit) + std::to_string(node_size(element));
-    return hash(info);
+    return std::to_string(hash(info));
+
+    /*unsigned char result[MD5_DIGEST_LENGTH];
+    if (!boost::filesystem::is_directory(element) && node_size(element) != 0) {
+        boost::iostreams::mapped_file_source src(element.path());
+        MD5((unsigned char*)src.data(), src.size(), result);
+    } else {
+        auto last_time_edit = boost::filesystem::last_write_time(element);
+        std::string info = element.path().string() + std::to_string(last_time_edit) + std::to_string(node_size(element));
+        MD5((unsigned char*)info.data(), info.size(), result);
+    }
+    std::ostringstream sout;
+    sout<<std::hex<<std::setfill('0');
+    for (auto c: result) sout<<std::setw(2)<<(int)c;
+    return sout.str();*/
 }
