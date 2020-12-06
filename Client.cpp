@@ -67,7 +67,7 @@ void Client::get_credentials() {
     try {
         std::unique_lock ul(input_mutex);   // Unique lock in order to use the cv wait
         do_start_input_reader();
-        cv.wait(ul, [this](){return !cred.username.empty() && cred.password != 0;});    // Waiting for the input reader thread to receive the credentials
+        cv.wait(ul, [this](){return !cred.username.empty() && !cred.password.empty();});    // Waiting for the input reader thread to receive the credentials
         Message login_message;
         login_message.put_credentials(cred.username, cred.password);    // Saving the credentials in the message that has to be sent
         enqueue_msg(login_message);
@@ -82,8 +82,16 @@ void Client::set_username(std::string &user) {
 }
 
 void Client::set_password(std::string &pwd) {
-    boost::hash<std::string> hash;
-    cred.password = hash(pwd);
+    unsigned char digest[SHA256_DIGEST_LENGTH];
+    SHA256_CTX sha256;
+    SHA256_Init(&sha256);
+    SHA256_Update(&sha256, pwd.data(), pwd.length());
+    SHA256_Final(digest, &sha256);
+    std::stringstream ss;
+    for (unsigned char ch : digest) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << (int)ch;
+    }
+    cred.password = ss.str();
 }
 
 void Client::do_start_input_reader() {

@@ -3,6 +3,7 @@
 #include <boost/asio.hpp>
 #include <boost/functional/hash.hpp>
 #include <boost/timer/timer.hpp>
+#include <openssl/sha.h>
 #include <iostream>
 #include <queue>
 #include "Base64/base64.h"
@@ -15,7 +16,7 @@ using boost::asio::ip::tcp;
 /// Struct for collecting the credentials related to a client
 struct Credentials {
     std::string username;
-    std::size_t password = 0;
+    std::string password;
 };
 
 class Client {

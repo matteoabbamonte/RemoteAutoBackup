@@ -16,7 +16,7 @@ public:
 
     /// Looks for the received credentials and returns two booleans representing
     /// the presence (or the absence) of the entry and the availability of the database
-    std::tuple<bool, bool> check_database(const std::string& username, const std::size_t& password);
+    std::tuple<bool, bool> check_database(const std::string& username, const std::string& password);
 
     /// Given a username, it saves in the given map the paths taken from the db, returns two booleans
     /// representing the presence (or the absence) of the entry and the availability of the database

@@ -61,6 +61,7 @@ size_t DirectoryWatcher::node_size(boost::filesystem::directory_entry& element) 
 size_t DirectoryWatcher::make_hash(boost::filesystem::directory_entry& element) {
     auto last_time_edit = boost::filesystem::last_write_time(element);
     boost::hash<std::string> hash;
+    std::cout << std::to_string(last_time_edit) << std::endl;
     std::string info = element.path().string() + std::to_string(last_time_edit) + std::to_string(node_size(element));
     return hash(info);
 }

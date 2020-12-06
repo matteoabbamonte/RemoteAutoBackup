@@ -2,13 +2,13 @@
 
 Database_Connection::Database_Connection(): db_name("../Clients.sqlite") {}
 
-std::tuple<bool, bool> Database_Connection::check_database(const std::string& username, const std::size_t& password) {
+std::tuple<bool, bool> Database_Connection::check_database(const std::string& username, const std::string& password) {
     std::cout << "Checking Database..." << std::endl;
     sqlite3* conn;  // Database handle defined by the sqlite3 structure
     int count = 0;
     bool db_availability = true;
     if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK) {
-        std::string sqlStatement = std::string("SELECT COUNT(*) FROM Client WHERE username = '") + username + std::string("' AND password = '") + std::to_string(password) + std::string("';");
+        std::string sqlStatement = std::string("SELECT COUNT(*) FROM Client WHERE username = '") + username + std::string("' AND password = '") + password + std::string("';");
         sqlite3_stmt *statement;    // Representing a single sql statement
         int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);  // Compiling the sql statement into a bytecode saved in statement structure
         if (res == SQLITE_OK) {
