@@ -32,6 +32,7 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     boost::asio::streambuf read_buf;
     std::mutex paths_mutex;
     std::mutex wq_mutex;
+    std::mutex fs_mutex;
     Database_Connection db;
 
     /// Reads the message from the socket and calls the appropriate handler

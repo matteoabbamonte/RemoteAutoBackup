@@ -52,6 +52,7 @@ void Server_Session::enqueue_msg(const Message &msg) {
 
 std::string Server_Session::do_write_element(action_type header, const std::string& data) {
     try {
+        std::lock_guard lg(fs_mutex);
         boost::property_tree::ptree pt;
         std::stringstream data_stream;
         data_stream << data;
@@ -59,7 +60,6 @@ std::string Server_Session::do_write_element(action_type header, const std::stri
         auto path = pt.get<std::string>("path");
         auto hash = pt.get<std::string>("hash");
         bool isFile = pt.get<bool>("isFile");
-        update_paths(path, hash);
         std::string directory = std::string("../../server/") + std::string(username);
         if (!boost::filesystem::is_directory(directory)) boost::filesystem::create_directory(directory);
         std::string relative_path = directory + std::string("/") + std::string(path);   // Creating actual filesystem path
@@ -72,8 +72,13 @@ std::string Server_Session::do_write_element(action_type header, const std::stri
             std::vector<BYTE> decodedData = base64_decode(content);
             boost::filesystem::ofstream outFile(relative_path.data());
             if (!content.empty()) {
-                outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size());
-                outFile.close();
+                if (outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size()).good()) {
+                    update_paths(path, hash);
+                    outFile.close();
+                } else {
+                    outFile.close();
+                    socket_.close();
+                }
             }
         }
         return path;
@@ -86,12 +91,12 @@ std::string Server_Session::do_write_element(action_type header, const std::stri
 
 void Server_Session::do_remove_element(const std::string& path) {
     std::lock_guard lg(paths_mutex);    // Lock in order to guarantee thread safe operations on paths map
-    paths.erase(path);
     std::string directory = std::string("../../server/") + std::string(username);
     std::string relative_path = directory + std::string("/") + std::string(path);
     while (relative_path.find(':') < relative_path.size())     // Resetting the original path format of the file or directory
         relative_path.replace(relative_path.find(':'), 1, ".");
     boost::filesystem::remove_all(relative_path.data());
+    paths.erase(path);
 }
 
 void Server_Session::update_paths(const std::string& path, const std::string& hash) {

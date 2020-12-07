@@ -396,6 +396,7 @@ void Client::handle_status(Message msg) {
 void Client::read_file(const std::string& path, const std::string& path_to_send, boost::property_tree::ptree& pt) {
     std::ifstream inFile;
     try {
+        std::lock_guard lg(fs_mutex);
         inFile.open(path, std::ios::in|std::ios::binary);   // Opening the file in binary mode
         std::vector<BYTE> buffer_vec;   // Creating an unsigned char vector
         char ch;

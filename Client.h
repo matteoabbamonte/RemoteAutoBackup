@@ -39,6 +39,7 @@ class Client {
     std::shared_ptr<bool> stop;
     std::mutex input_mutex;
     std::mutex wq_mutex;
+    std::mutex fs_mutex;
     std::condition_variable cv;
 
     /// Opens the connection with the server, calling the get_credentials and the do_read right after
