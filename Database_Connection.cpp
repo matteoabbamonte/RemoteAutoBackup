@@ -76,15 +76,22 @@ bool Database_Connection::update_db_paths(std::map<std::string, std::string> &pa
     boost::property_tree::ptree pt;
     std::stringstream map_to_stream;
     try {
-        for (auto & path : paths)   // For every element of the map the key-value pairs are saved in a json file
-            pt.add(path.first, path.second);
-        boost::property_tree::write_json(map_to_stream, pt);    // Saving the json in a stream
+        if (!paths.empty()) {
+            for (auto & path : paths)   // For every element of the map the key-value pairs are saved in a json file
+                pt.add(path.first, path.second);
+            boost::property_tree::write_json(map_to_stream, pt);    // Saving the json in a stream
+        }
     } catch (const boost::property_tree::ptree_error &err) {
         std::cerr << "Error while writing json." << std::endl;
         throw;
     }
     if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK) {
-        std::string sqlStatement = std::string("UPDATE client SET paths = '") + map_to_stream.str() + std::string("' WHERE username = '") + username + std::string("';");
+        std::string sqlStatement;
+        if (paths.empty()) {    // If the map is empty then set the field to NULL
+            sqlStatement = std::string("UPDATE client SET paths = NULL WHERE username = '") + username + std::string("';");
+        } else {    // Else set the field with the streamed map
+            sqlStatement = std::string("UPDATE client SET paths = '") + map_to_stream.str() + std::string("' WHERE username = '") + username + std::string("';");
+        }
         sqlite3_stmt *statement;   // Representing a single sql statement
         int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);  // Compiling the sql statement into a bytecode saved in statement structure
         if (res == SQLITE_OK) {

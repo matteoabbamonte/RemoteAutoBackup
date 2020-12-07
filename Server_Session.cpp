@@ -1,6 +1,6 @@
 #include "Server_Session.h"
 
-Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)) {}
+Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)), successful_first_loading(false) {}
 
 void Server_Session::start() {
     do_read();
@@ -66,19 +66,17 @@ std::string Server_Session::do_write_element(action_type header, const std::stri
         while (relative_path.find(':') < relative_path.size())     // Resetting the original path format of the file or directory
             relative_path.replace(relative_path.find(':'), 1, ".");
         if (header == action_type::create && !isFile) {     // Creating a directory with the specified name
-            boost::filesystem::create_directory(relative_path);
+            if (boost::filesystem::create_directory(relative_path)) update_paths(path, hash);
         } else {        // Creating a file with the specified name
             auto content = pt.get<std::string>("content");
             std::vector<BYTE> decodedData = base64_decode(content);
             boost::filesystem::ofstream outFile(relative_path.data());
-            if (!content.empty()) {
-                if (outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size()).good()) {
-                    update_paths(path, hash);
-                    outFile.close();
-                } else {
-                    outFile.close();
-                    socket_.close();
-                }
+            if (outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size()).good()) {
+                update_paths(path, hash);
+                outFile.close();
+            } else {
+                outFile.close();
+                socket_.close();
             }
         }
         return path;
@@ -90,7 +88,7 @@ std::string Server_Session::do_write_element(action_type header, const std::stri
 }
 
 void Server_Session::do_remove_element(const std::string& path) {
-    std::lock_guard lg(paths_mutex);    // Lock in order to guarantee thread safe operations on paths map
+    std::scoped_lock lg(paths_mutex, fs_mutex);    // Lock in order to guarantee thread safe operations on paths map and filesystem
     std::string directory = std::string("../../server/") + std::string(username);
     std::string relative_path = directory + std::string("/") + std::string(path);
     while (relative_path.find(':') < relative_path.size())     // Resetting the original path format of the file or directory
@@ -162,6 +160,7 @@ void Server_Session::request_handler(Message msg) {
                     boost::property_tree::read_json(data_stream, pt);  // Re-creating json from data stream
                     auto found_avail = db.get_paths(paths, username);
                     if (std::get<1>(found_avail)) {     //  If the database is available
+                        successful_first_loading = true;
                         if (std::get<0>(found_avail)) {     // Comparing the maps and answering either with in_need o no_need
                             Diff_paths diffs = compare_paths(pt);
                             if (diffs.toAdd.empty()) {
@@ -239,7 +238,7 @@ void Server_Session::request_handler(Message msg) {
 Server_Session::~Server_Session() {
     auto delay = boost::chrono::milliseconds(5000);
     while (delay.count() <= 20000) {
-        if (!paths.empty()) {   // If the paths map has been loaded with the db copy, then update
+        if (successful_first_loading) {   // If the paths map has been loaded with the db copy, then update
             try {
                 bool result;
                 do {

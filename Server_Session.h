@@ -28,6 +28,7 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     tcp::socket socket_;
     std::string username;
     std::map<std::string, std::string> paths;
+    bool successful_first_loading;
     std::queue<Message> write_queue_s;
     boost::asio::streambuf read_buf;
     std::mutex paths_mutex;
