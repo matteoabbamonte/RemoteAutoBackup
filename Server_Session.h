@@ -54,6 +54,9 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     /// Updates the paths map
     void update_paths(const std::string& path, const std::string& hash);
 
+    /// Updates the database after an operation on the file system
+    void update_db();
+
     /// Compares the local map with the one sent by the client
     Diff_paths compare_paths(ptree &client_pt);
 

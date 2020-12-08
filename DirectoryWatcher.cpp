@@ -59,20 +59,14 @@ size_t DirectoryWatcher::node_size(boost::filesystem::directory_entry& element) 
 }
 
 std::string DirectoryWatcher::make_hash(boost::filesystem::directory_entry& element) {
-    /*auto last_time_edit = boost::filesystem::last_write_time(element);
-    boost::hash<std::string> hash;
-    std::string info = element.path().string() + std::to_string(last_time_edit) + std::to_string(node_size(element));
-    return std::to_string(hash(info));*/
-
     unsigned char checksum[MD5_DIGEST_LENGTH];
     MD5_CTX md5;
     MD5_Init(&md5);
     if (!boost::filesystem::is_directory(element) && node_size(element) != 0) {
         std::ifstream file;
-        file.open (element.path(), std::ios::binary | std::ios::in);    // Opening the file that has to be hashed
-        file.seekg (0, std::ios::end);  // Finding the file length using seekg
-        long file_length = file.tellg();
-        file.seekg (0, std::ios::beg);
+        file.open(element.path().string(), std::ios::in|std::ios::binary);  // Opening the file that has to be hashed
+        file.seekg(0, std::ios::end);  // Finding the file length using seekg
+        file.seekg(0, std::ios::beg);
         std::string buffer;
         std::string str;
         while (std::getline(file, str)) {

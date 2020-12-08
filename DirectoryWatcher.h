@@ -1,6 +1,5 @@
 #pragma once
 
-#include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/chrono.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>

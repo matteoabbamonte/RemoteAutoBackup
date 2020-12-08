@@ -224,7 +224,7 @@ void Client::handle_connection_failures() {
             get_credentials();
             do_read();
         } else {
-            auto wait = boost::chrono::milliseconds(delay);
+            auto wait = boost::chrono::milliseconds(delay)/1000;
             std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
             boost::this_thread::sleep_for(delay);
             if (wait.count() >= 20) {
@@ -267,7 +267,7 @@ void Client::handle_reading_failures() {
                 close();
             }
         } else {
-            auto wait = boost::chrono::milliseconds(delay);
+            auto wait = boost::chrono::milliseconds(delay)/1000;
             std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
             boost::this_thread::sleep_for(delay);
             if (wait.count() >= 20) {
@@ -351,7 +351,7 @@ void Client::handle_status(Message msg) {
                 break;
             }
             case status_type::service_unavailable : {
-                auto wait = boost::chrono::milliseconds(delay);
+                auto wait = boost::chrono::milliseconds(delay)/1000;
                 std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
                 boost::this_thread::sleep_for(delay);
                 Message last_message;

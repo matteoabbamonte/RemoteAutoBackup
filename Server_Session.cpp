@@ -95,11 +95,42 @@ void Server_Session::do_remove_element(const std::string& path) {
         relative_path.replace(relative_path.find(':'), 1, ".");
     boost::filesystem::remove_all(relative_path.data());
     paths.erase(path);
+    update_db();
 }
 
 void Server_Session::update_paths(const std::string& path, const std::string& hash) {
     std::lock_guard lg(paths_mutex);    // Lock in order to guarantee thread safe operations on paths map
     paths[path] = hash;
+    update_db();
+}
+
+void Server_Session::update_db() {
+    auto delay = boost::chrono::milliseconds(5000)/1000;
+    while (delay.count() <= 20) {
+        if (successful_first_loading) {   // If the paths map has been loaded with the db copy, then update
+            try {
+                bool result;
+                do {
+                    result = db.update_db_paths(paths, username);
+                    if (!result) {
+                        std::cout << "Waiting for " << delay.count() << " sec..." << std::endl;
+                        boost::this_thread::sleep_for(delay);   // Waiting for an increasing amount of time
+                        delay *= 2;
+                    }
+                } while (!result && delay.count() <= 20);    // Looping until either the db is correctly accessed or the delay is too high
+                if (result) std::cout << "Database successfully updated" << std::endl;
+                else std::cout << "Database not updated" << std::endl;
+                delay = boost::chrono::milliseconds(30);     // Setting the delay to a value that can break the external loop
+            } catch (const boost::property_tree::ptree_error &err) {
+                std::cout << "Waiting for " << delay.count() << " sec..." << std::endl;
+                if (delay.count() <= 20) {
+                    boost::this_thread::sleep_for(delay);
+                    delay *= 2;
+                }
+                if (delay.count() > 20) std::cout << "Database not updated" << std::endl;
+            }
+        } else break;
+    }
 }
 
 Diff_paths Server_Session::compare_paths(ptree &client_pt) {
@@ -236,30 +267,5 @@ void Server_Session::request_handler(Message msg) {
 }
 
 Server_Session::~Server_Session() {
-    auto delay = boost::chrono::milliseconds(5000);
-    while (delay.count() <= 20000) {
-        if (successful_first_loading) {   // If the paths map has been loaded with the db copy, then update
-            try {
-                bool result;
-                do {
-                    result = db.update_db_paths(paths, username);
-                    if (!result) {
-                        std::cout << "Waiting for " << delay.count()/1000 << " sec..." << std::endl;
-                        boost::this_thread::sleep_for(delay);   // Waiting for an increasing amount of time
-                        delay *= 2;
-                    }
-                } while (!result && delay.count() <= 20000);    // Looping until either the db is correctly accessed or the delay is too high
-                if (result) std::cout << "Database successfully updated" << std::endl;
-                else std::cout << "Database not updated" << std::endl;
-                delay = boost::chrono::milliseconds(30000);     // Setting the delay to a value that can break the external loop
-            } catch (const boost::property_tree::ptree_error &err) {
-                std::cout << "Waiting for " << delay.count()/1000 << " sec..." << std::endl;
-                if (delay.count() <= 20000) {
-                    boost::this_thread::sleep_for(delay);
-                    delay *= 2;
-                }
-                if (delay.count() > 20000) std::cout << "Database not updated" << std::endl;
-            }
-        } else break;
-    }
+    update_db();
 }
