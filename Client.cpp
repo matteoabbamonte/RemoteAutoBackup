@@ -42,9 +42,34 @@ void Client::do_read() {
 
 void Client::do_write() {
     std::cout << "Writing message..." << std::endl;
+    std::string msg_txt = *write_queue_c.front().get_msg_ptr();
     boost::asio::async_write(socket_, boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
-            [this](boost::system::error_code ec, std::size_t length) {
+            [this, msg_txt](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
+                    auto response_timer = std::make_unique<boost::asio::system_timer>(io_context_);
+                    response_timer->expires_from_now(boost::asio::chrono::seconds(10));
+                    response_timer->async_wait([this](const boost::system::error_code &error){
+                        std::cerr << "Timeout expired, closing session." << std::endl;
+                        close();
+                    });
+                    Message msg;
+                    *msg.get_msg_ptr() = msg_txt;
+                    msg.decode_message();
+                    switch (msg.get_header()) {
+                        case action_type::login : {
+                            ack_tracker["login"] = std::move(response_timer);
+                            break;
+                        }
+                        case action_type::synchronize : {
+                            ack_tracker["synch"] = std::move(response_timer);
+                            break;
+                        }
+                        default: {
+                            ack_tracker[msg.get_data().substr(0, msg.get_data().find(' '))] = std::move(response_timer);
+                            break;
+                        }
+                    }
+
                     std::lock_guard lg(wq_mutex);   // Lock in order to guarantee thread safe pop operation
                     write_queue_c.pop();
                     if (!write_queue_c.empty()) do_write();
@@ -323,6 +348,8 @@ void Client::handle_status(Message msg) {
         std::string data = msg.get_data();
         switch (status) {
             case status_type::in_need : {
+                io_context_.post([&](){ack_tracker["synch"]->cancel();});
+                ack_tracker.erase("synch");
                 std::string separator = "||";
                 size_t pos;
                 std::string path_to_send;
@@ -345,8 +372,15 @@ void Client::handle_status(Message msg) {
                 }
                 break;
             }
+            case status_type::no_need : {
+                io_context_.post([&](){ack_tracker["synch"]->cancel();});
+                ack_tracker.erase("synch");
+                break;
+            }
             case status_type::unauthorized : {
                 std::cerr << "Unauthorized. ";
+                io_context_.post([&](){ack_tracker["login"]->cancel();});
+                ack_tracker.erase("login");
                 close();    // If the login process failed, then close the current session
                 break;
             }
@@ -376,12 +410,16 @@ void Client::handle_status(Message msg) {
             }
             case status_type::authorized : {
                 std::cout << "Authorized." << std::endl;
+                io_context_.post([&](){ack_tracker["login"]->cancel();});
+                ack_tracker.erase("login");
                 do_start_directory_watcher();   // Starting the directory watcher
                 handle_sync();  // Starting the synchronization procedure
                 break;
             }
             default : {
                 std::cout << "Operation completed." << std::endl;
+                io_context_.post([&]{ack_tracker[data.substr(0, data.find(' '))]->cancel();});
+                ack_tracker.erase(data.substr(0, data.find(' ')));
             }
         }
     } catch (const boost::property_tree::ptree_error &err) {
