@@ -42,9 +42,9 @@ void Client::do_read() {
 
 void Client::do_write() {
     std::cout << "Writing message..." << std::endl;
-    std::string msg_txt = *write_queue_c.front().get_msg_ptr();
+    auto msg = write_queue_c.front();
     boost::asio::async_write(socket_, boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
-            [this, msg_txt](boost::system::error_code ec, std::size_t length) {
+            [this, msg](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
                     auto response_timer = std::make_unique<boost::asio::system_timer>(io_context_);
                     response_timer->expires_from_now(boost::asio::chrono::minutes(10));
@@ -54,35 +54,40 @@ void Client::do_write() {
                             close();
                         }
                     });
-                    Message msg;
-                    *msg.get_msg_ptr() = msg_txt;
-                    msg.decode_message();
-                    std::string key;
-                    switch (msg.get_header()) {
-                        case action_type::login : {
-                            key = "login";
-                            break;
+                    try {
+                        std::string key;
+                        auto header = const_cast<Message&>(msg).get_header();
+                        switch (header) {
+                            case action_type::login : {
+                                key = "login";
+                                break;
+                            }
+                            case action_type::synchronize : {
+                                key = "synch";
+                                break;
+                            }
+                            default: {
+                                boost::property_tree::ptree pt;
+                                std::stringstream data_stream(const_cast<Message&>(msg).get_data());
+                                boost::property_tree::read_json(data_stream, pt);
+                                key = pt.get<std::string>("path");
+                                break;
+                            }
                         }
-                        case action_type::synchronize : {
-                            key = "synch";
-                            break;
-                        }
-                        default: {
-                            boost::property_tree::ptree pt;
-                            std::stringstream data_stream(msg.get_data());
-                            boost::property_tree::read_json(data_stream, pt);
-                            key = pt.get<std::string>("path");
-                            break;
-                        }
+                        ack_tracker[key] = std::move(response_timer);
+                        std::lock_guard lg(wq_mutex);   // Lock in order to guarantee thread safe pop operation
+                        write_queue_c.pop();
+                        if (!write_queue_c.empty()) do_write();
+                    } catch (const boost::property_tree::ptree_error &err) {
+                        std::cerr << "Error while completing login procedure. ";
+                        close();
                     }
-                    ack_tracker[key] = std::move(response_timer);
-                    std::lock_guard lg(wq_mutex);   // Lock in order to guarantee thread safe pop operation
-                    write_queue_c.pop();
-                    if (!write_queue_c.empty()) do_write();
                 } else {
-                    *running_watcher = false;   // Signaling to the directory watcher the end of the client session
-                    std::cerr << "Error while writing. ";
-                    close();
+                    if (*running_client) {
+                        *running_watcher = false;   // Signaling to the directory watcher the end of the client session
+                        std::cerr << "Error while writing. ";
+                        close();
+                    }
                 }
     });
 }
