@@ -17,13 +17,13 @@ public:
     Message();
 
     /// Assigning the content of the json (pt) to the msgPtr
-    void zip_message();
+    int zip_message();
 
     /// Getting pointer to the message
     msg_ptr get_msg_ptr();
 
     /// Saving the content of the msgPtr to the json (pt)
-    void decode_message();
+    int decode_message();
 
     /// Getting the header of the message from the json (pt)
     int get_header();
@@ -35,8 +35,8 @@ public:
     std::tuple<std::string, std::string> get_credentials();
 
     /// Inserting credentials into the message json (pt)
-    void put_credentials(const std::string& username, const std::string& password);
+    int put_credentials(const std::string& username, const std::string& password);
 
     /// Assembling the json that has to be saved in the final message
-    void encode_message(int header, std::string& data);
+    int encode_message(int header, std::string& data);
 };

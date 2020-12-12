@@ -5,45 +5,56 @@ Message::Message() {
     msgPtr = std::make_shared<std::string>();
 }
 
-void Message::zip_message() {
+int Message::zip_message() {
+    int res;
     try {
         std::stringstream message_stream;
         boost::property_tree::write_json(message_stream, pt);  // Saving the json in a stream
         msgPtr = std::make_shared<std::string>(message_stream.str());
+        res = 1;
     } catch (const boost::property_tree::ptree_error &err) {
-        throw;
+        res = 0;
+    } catch (const std::bad_alloc &err) {
+        res = 0;
     }
+    return res;
 }
 
 std::shared_ptr<std::string> Message::get_msg_ptr() {
     return msgPtr;
 }
 
-void Message::decode_message() {
+int Message::decode_message() {
+    int res;
     try {
         std::stringstream stream;
         stream << (*msgPtr);
         std::cout << (*msgPtr) << std::endl;
         boost::property_tree::read_json(stream, pt);    // Re-creating json from data stream
+        res = 1;
     } catch (const boost::property_tree::ptree_error &err) {
-        throw;
+        res = 0;
     }
 }
 
 int Message::get_header() {
+    int res;
     try {
-        return pt.get<int>("header");
+        res = pt.get<int>("header");
     } catch (const boost::property_tree::ptree_error &err) {
-        throw;
+        res = 999;
     }
+    return res;
 }
 
 std::string Message::get_data() {
+    std::string res;
     try {
-        return pt.get<std::string>("data");
+        res = pt.get<std::string>("data");
     } catch (const boost::property_tree::ptree_error &err) {
-        throw;
+        res = "";
     }
+    return res;
 }
 
 std::tuple<std::string, std::string> Message::get_credentials() {
@@ -60,23 +71,29 @@ std::tuple<std::string, std::string> Message::get_credentials() {
     }
 }
 
-void Message::put_credentials(const std::string& username, const std::string& password) {
+int Message::put_credentials(const std::string& username, const std::string& password) {
+    int res;
     try {
         std::string user_pass = std::string(username) + std::string("||") + std::string(password);
         encode_message(0, user_pass);
+        res = 1;
     } catch (const boost::property_tree::ptree_error &err) {
-        throw;
+        res = 0;
     }
+    return res;
 }
 
-void Message::encode_message(int header, std::string& data) {
+int Message::encode_message(int header, std::string& data) {
+    int res;
     try {
         pt.add("header", header);
         pt.add("data", data);
         zip_message();
+        res = 1;
     } catch (const boost::property_tree::ptree_error &err) {
-        throw;
+        res = 0;
     }
+    return res;
 }
 
 
