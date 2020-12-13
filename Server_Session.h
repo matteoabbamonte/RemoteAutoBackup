@@ -46,7 +46,7 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     void enqueue_msg(const Message& msg);
 
     /// Creates or updates file or directories received
-    std::string do_write_element(action_type header, const std::string& data);
+    std::string do_write_element(action_type header, const boost::property_tree::ptree& data_pt);
 
     /// Deletes file or directories received
     void do_remove_element(const std::string& path);
@@ -62,6 +62,8 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
 
     /// Decodes message and takes the needed actions
     void request_handler(Message msg);
+
+    void log_and_report(std::string response, const std::string& log);
 
 public:
 

@@ -50,16 +50,15 @@ void Server_Session::enqueue_msg(const Message &msg) {
     if (!write_in_progress) do_write();     // Calling do_write only if it is not already running
 }
 
-std::string Server_Session::do_write_element(action_type header, const std::string& data) {
+std::string Server_Session::do_write_element(action_type header, const boost::property_tree::ptree& data_pt) {
     try {
         std::lock_guard lg(fs_mutex);
-        boost::property_tree::ptree pt;
-        std::stringstream data_stream;
-        data_stream << data;
-        boost::property_tree::read_json(data_stream, pt);      // Re-creating json from data stream
-        auto path = pt.get<std::string>("path");
-        auto hash = pt.get<std::string>("hash");
-        bool isFile = pt.get<bool>("isFile");
+        auto path = data_pt.get<std::string>("path", "none");
+        if (path == "none") log_and_report("Communication error", "Error while decoding the path to write. ");
+        auto hash = data_pt.get<std::string>("hash", "none");
+        if (hash == "none") log_and_report("Communication error", "Error while decoding the hash of the element that has to be written. ");
+        auto isFile = data_pt.get<int>("isFile", 999);
+        if (isFile == 999) log_and_report("Communication error", "Error while decoding the type of the element that has to be written. ");
         std::string directory = std::string("../../server/") + std::string(username);
         if (!boost::filesystem::is_directory(directory)) boost::filesystem::create_directory(directory);
         std::string relative_path = directory + std::string("/") + std::string(path);   // Creating actual filesystem path
@@ -68,7 +67,8 @@ std::string Server_Session::do_write_element(action_type header, const std::stri
         if (header == action_type::create && !isFile) {     // Creating a directory with the specified name
             if (boost::filesystem::create_directory(relative_path)) update_paths(path, hash);
         } else {        // Creating a file with the specified name
-            auto content = pt.get<std::string>("content");
+            auto content = data_pt.get<std::string>("content", "none");
+            if (content == "none") log_and_report("Communication error", "Error while decoding the content fo the file that has to be written. ");
             std::vector<BYTE> decodedData = base64_decode(content);
             boost::filesystem::ofstream outFile(relative_path.data());
             if (outFile.write(reinterpret_cast<const char *>(decodedData.data()), decodedData.size()).good()) {
@@ -80,8 +80,6 @@ std::string Server_Session::do_write_element(action_type header, const std::stri
             }
         }
         return path;
-    } catch (const boost::property_tree::ptree_error &err) {
-        throw;
     } catch (const std::ios_base::failure &err) {
         throw;
     }
@@ -135,7 +133,12 @@ void Server_Session::update_db() {
 
 Diff_paths Server_Session::compare_paths(ptree &client_pt) {
     std::vector<std::string> toAdd;
+    std::vector<std::string> toRem;
     for (auto &entry : client_pt) {     // Scanning received map in search for new elements
+        if (entry.first == "empty") {
+            toAdd.clear();
+            break;  // If the json contains the message "empty: directory" then there is nothing to add in the server
+        }
         auto it = paths.find(entry.first);
         if (it != paths.end()) {
             std::string entry_hash(entry.second.data());
@@ -145,7 +148,6 @@ Diff_paths Server_Session::compare_paths(ptree &client_pt) {
             toAdd.emplace_back(entry.first);
         }
     }
-    std::vector<std::string> toRem;
     for (auto &entry : paths) {     // Scanning local map in search for deprecated elements
         auto it = client_pt.find(entry.first);
         if (it == client_pt.not_found()) toRem.emplace_back(entry.first);
@@ -154,13 +156,15 @@ Diff_paths Server_Session::compare_paths(ptree &client_pt) {
 }
 
 void Server_Session::request_handler(Message msg) {
-    Message response_msg;
     std::string response_str;
     int status_type = 999;      // Setting status type to an unreachable (wrong) value
     try {
-        msg.decode_message();
-        auto header = static_cast<action_type>(msg.get_header());
-        std::string data = msg.get_data();
+        if (!msg.decode_message()) log_and_report("Communication error", "Error while decoding client message. ");
+        int header_int = msg.get_header();
+        auto data_pt = msg.get_pt_data();
+        if (data_pt.empty() || header_int == 999)
+            if (header_int != 0) log_and_report("Communication error", "Error while getting fields from message. ");
+        auto header = static_cast<action_type>(header_int);
         if (header != action_type::login && username.empty()) {
             status_type = 1;
             response_str = std::string("Login needed");
@@ -168,6 +172,7 @@ void Server_Session::request_handler(Message msg) {
             switch (header) {
                 case (action_type::login) : {
                     auto credentials = msg.get_credentials();
+                    if (std::get<0>(credentials) == "error" || std::get<1>(credentials) == "error") log_and_report("Communication error", "Error while decoding credentials. ");
                     auto count_avail = db.check_database(std::get<0>(credentials), std::get<1>(credentials));
                     if (std::get<1>(count_avail)) {         // If db is available
                         if (std::get<0>(count_avail)) {     // If there is a match
@@ -185,15 +190,11 @@ void Server_Session::request_handler(Message msg) {
                     break;
                 }
                 case (action_type::synchronize) : {
-                    boost::property_tree::ptree pt;
-                    std::stringstream data_stream;
-                    data_stream << data;
-                    boost::property_tree::read_json(data_stream, pt);  // Re-creating json from data stream
                     auto found_avail = db.get_paths(paths, username);
                     if (std::get<1>(found_avail)) {     //  If the database is available
                         successful_first_loading = true;
                         if (std::get<0>(found_avail)) {     // Comparing the maps and answering either with in_need o no_need
-                            Diff_paths diffs = compare_paths(pt);
+                            Diff_paths diffs = compare_paths(data_pt);
                             if (diffs.toAdd.empty()) {
                                 status_type = 5;
                                 response_str = "No need";
@@ -208,7 +209,7 @@ void Server_Session::request_handler(Message msg) {
                             }
                         } else {    // Answering being in_need with the whole map
                             status_type = 6;
-                            for (const auto &path : pt) response_str += path.first + "||";
+                            for (const auto &path : data_pt) response_str += path.first + "||";
                         }
                     } else {
                         status_type = 7;
@@ -217,23 +218,20 @@ void Server_Session::request_handler(Message msg) {
                     break;
                 }
                 case (action_type::create) : {
-                    std::string path = do_write_element(header, data);
+                    std::string path = do_write_element(header, data_pt);
                     status_type = 2;
                     response_str = std::string(path) + std::string(" created");
                     break;
                 }
                 case (action_type::update) : {
-                    std::string path = do_write_element(header, data);
+                    std::string path = do_write_element(header, data_pt);
                     status_type = 3;
                     response_str = std::string(path) + std::string(" updated");
                     break;
                 }
                 case (action_type::erase) : {
-                    boost::property_tree::ptree pt;
-                    std::stringstream data_stream;
-                    data_stream << data;
-                    boost::property_tree::read_json(data_stream, pt);  // Re-creating json from data stream
-                    auto path = pt.get<std::string>("path");
+                    auto path = data_pt.get<std::string>("path", "none");
+                    if (path == "none") log_and_report("Communication error", "Error while decoding the path of the file that has to be erased. ");
                     do_remove_element(path);
                     status_type = 4;
                     response_str = std::string(path) + std::string(" erased");
@@ -246,24 +244,23 @@ void Server_Session::request_handler(Message msg) {
             }
         }
         if (status_type <= 8) {     // In case of error no message is sent to the client
-            response_msg.encode_message(status_type, response_str);
+            Message response_msg;
+            if (!response_msg.encode_message(status_type, response_str)) log_and_report("Communication error", "Server is not working properly.");
             enqueue_msg(response_msg);
-        }
-    } catch (const boost::property_tree::ptree_error &err) {
-        response_str = std::string("Communication error");
-        try {
-            response_msg.encode_message(7, response_str);
-            enqueue_msg(response_msg);
-            std::cerr << "Server is not working properly." << std::endl;
-        } catch (const boost::property_tree::ptree_error &err) {
-            socket_.close();
         }
     } catch (const std::ios_base::failure &err) {
-        response_str = std::string("Communication error");
-        response_msg.encode_message(7, response_str);
-        enqueue_msg(response_msg);
-        std::cerr << "Server is not working properly." << std::endl;
+        log_and_report("Communication error", "Server is not working properly.");
     }
+}
+
+void Server_Session::log_and_report(std::string response, const std::string& log) {
+    Message response_msg;
+    std::cerr << log << std::endl;
+    if (!response_msg.encode_message(7, response)) {
+        socket_.close();
+    }
+    enqueue_msg(response_msg);
+    socket_.close();
 }
 
 Server_Session::~Server_Session() {

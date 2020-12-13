@@ -66,12 +66,10 @@ void Client::do_write() {
                                 break;
                             }
                             default: {
-                                boost::property_tree::ptree pt;
-                                std::string data = const_cast<Message&>(msg).get_data();
+                                auto data = const_cast<Message&>(msg).get_pt_data();
                                 if (data.empty()) log_and_close("Error while setting timeout. ");
-                                std::stringstream data_stream(data);
-                                boost::property_tree::read_json(data_stream, pt);
-                                key = pt.get<std::string>("path");
+                                key = data.get<std::string>("path", "none");
+                                if (key == "none") log_and_close("Error while setting timeout. ");
                                 break;
                             }
                         }
@@ -181,31 +179,23 @@ void Client::do_start_directory_watcher() {
                     case FileStatus::created : {
                         if (isFile) std::cout << "File created: " << path_to_send << '\n';
                         else std::cout << "Directory created: " << path_to_send << '\n';
-                        try {
-                            read_file(path, path_to_send, pt);
-                            action_type = 2;
-                        } catch (const std::ios_base::failure &err) {
+                        if (!read_file(path, path_to_send, pt)) {
                             std::cerr << "Error while opening the file: " << path_to_send << " It won't be sent." << std::endl;
                             paths_to_ignore.emplace_back(path_to_send);    // Adding the path of the file to the black list for removal
-                        } catch (const boost::property_tree::ptree_bad_data &err) {
-                            std::cerr << "Error while parsing the file: " << path_to_send << " It won't be sent." << std::endl;
-                            paths_to_ignore.emplace_back(path_to_send);    // Adding the path of the file to the black list for removal
+                            break;
                         }
+                        action_type = 2;
                         break;
                     }
                     case FileStatus::modified : {
                         if (isFile) {
                             std::cout << "File modified: " << path << '\n';
-                            try {
-                                read_file(path, path_to_send, pt);
-                                action_type = 3;
-                            } catch (const std::ios_base::failure &err) {
+                            if (!read_file(path, path_to_send, pt)) {
                                 std::cerr << "Error while opening the file: " << path_to_send << " It won't be sent." << std::endl;
                                 paths_to_ignore.emplace_back(path_to_send);    // Adding the path of the file to the black list for removal
-                            } catch (const boost::property_tree::ptree_bad_data &err) {
-                                std::cerr << "Error while parsing the file: " << path_to_send << " It won't be sent." << std::endl;
-                                paths_to_ignore.emplace_back(path_to_send);    // Adding the path of the file to the black list for removal
+                                break;
                             }
+                            action_type = 3;
                         } else {
                             std::cout << "Directory modified: " << path << '\n';
                         }
@@ -229,11 +219,8 @@ void Client::do_start_directory_watcher() {
                 }
                 // Writing message
                 if (action_type <= 4) {    // If no errors occurred
-                    std::stringstream file_stream;
-                    boost::property_tree::write_json(file_stream, pt, false);   // Saving the json in a stream, "false" in order to avoid the '\n' before the '}' at the end
-                    std::string file_string(file_stream.str());
                     Message write_msg;
-                    if (!write_msg.encode_message(action_type, file_string)) {
+                    if (!write_msg.encode_message(action_type, pt)) {
                         paths_to_ignore.emplace_back(path_to_send);    // Adding the path of the file to the black list for removal
                         std::cerr << "Error while executing the action on the file " << path_to_send << ", it won't be sent. " << std::endl;
                         std::cerr << "If you want to resynchronize write \'exit\'." << std::endl;
@@ -317,7 +304,8 @@ void Client::handle_reconnection_timer() {
     }
 }
 
-void Client::handle_sync() {
+int Client::handle_sync() {
+    int res;
     try {
         delay = boost::chrono::milliseconds(5000);  // Resetting delay to the initial value
         boost::property_tree::ptree pt;
@@ -327,24 +315,25 @@ void Client::handle_sync() {
             while (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");    // Making the path compatible with json polices
             pt.add(path, tuple.second.hash);    // Adding the node to the json
         }
-        std::stringstream map_stream;
-        boost::property_tree::write_json(map_stream, pt, false);   // Saving the json in a stream, "false" in order to avoid the '\n' before the '}' at the end
-        std::string map_string = map_stream.str();
         Message write_msg;
-        if (!write_msg.encode_message(1, map_string)) {
-            throw boost::property_tree::ptree_error("Error while encoding message");
+        if (pt.empty()) pt.add("empty", "directory");   // Making the server aware that the path to watch is empty
+        if (!write_msg.encode_message(1, pt)) {
+            res = 0;
+        } else {
+            enqueue_msg(write_msg);
+            res = 1;
         }
-        enqueue_msg(write_msg);
     } catch (const boost::property_tree::ptree_error &err) {
-        throw;
+        res = 0;
     }
+    return res;
 }
 
 void Client::handle_status(Message msg) {
     try {
-        if (!msg.decode_message())log_and_close("Error while decoding server message, closing session. ");
+        if (!msg.decode_message()) log_and_close("Error while decoding server message, closing session. ");
         int header = msg.get_header();
-        std::string data = msg.get_data();
+        auto data = msg.get_str_data();
         if (data.empty() || header == 999)
             log_and_close("Error while communicating with server, closing session. ");
         auto status = static_cast<status_type>(header);   // Casting header to status
@@ -363,14 +352,14 @@ void Client::handle_status(Message msg) {
                         path.replace(path.find(':'), 1, ".");
                     path = std::string(path_to_watch + "/").append(path);   // Restoring the 'relative' path of the file or directory
                     boost::property_tree::ptree pt;
-                    read_file(path, path_to_send, pt);
+                    if (!read_file(path, path_to_send, pt))
+                        log_and_close("Error while opening the file: " + path_to_send + " It won't be sent.");
                     // Writing message
-                    std::stringstream file_stream;
-                    boost::property_tree::write_json(file_stream, pt, false);   // Saving the json in a stream, "false" in order to avoid the '\n' before the '}' at the end
-                    std::string file_string(file_stream.str());
                     Message write_msg;
-                    if (write_msg.encode_message(2, file_string))
+                    if (!write_msg.encode_message(2, pt)) {
                         log_and_close("Error while encoding message, closing session. ");
+                        break;
+                    }
                     enqueue_msg(write_msg);
                 }
                 break;
@@ -397,7 +386,7 @@ void Client::handle_status(Message msg) {
                         log_and_close("Error while communicating with server, closing session. ");
                     enqueue_msg(login_message);
                 } else {
-                    handle_sync();     // Else retry the synchronization procedure
+                    if (!handle_sync()) log_and_close("Error while communicating with server, closing session. ");     // Else retry the synchronization procedure
                 }
                 if (wait.count() >= 20) {
                     log_and_close("Server unavailable. ");
@@ -415,7 +404,7 @@ void Client::handle_status(Message msg) {
                 ack_tracker["login"]->cancel();
                 ack_tracker.erase("login");
                 do_start_directory_watcher();   // Starting the directory watcher
-                handle_sync();  // Starting the synchronization procedure
+                if (!handle_sync()) log_and_close("Error while communicating with server, closing session. ");  // Starting the synchronization procedure
                 break;
             }
             default : {
@@ -424,15 +413,14 @@ void Client::handle_status(Message msg) {
                 ack_tracker.erase(data.substr(0, data.rfind(' ')));
             }
         }
-    } catch (const boost::property_tree::ptree_error &err) {
-        log_and_close("Error while communicating with server, closing session. ");
     } catch (const std::ios_base::failure &err) {
         log_and_close("Error while synchronizing with server, closing session. ");
     }
 }
 
-void Client::read_file(const std::string& path, const std::string& path_to_send, boost::property_tree::ptree& pt) {
+int Client::read_file(const std::string& path, const std::string& path_to_send, boost::property_tree::ptree& pt) {
     std::ifstream inFile;
+    int res;
     try {
         std::lock_guard lg(fs_mutex);
         inFile.open(path, std::ios::in|std::ios::binary);   // Opening the file in binary mode
@@ -442,13 +430,15 @@ void Client::read_file(const std::string& path, const std::string& path_to_send,
         std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
         pt.add("path", path_to_send);
         pt.add("hash", dw_ptr->getNode(path).hash);        // Retrieving the hash from the Node_Info struct of the directory watcher
-        pt.add("isFile", dw_ptr->getNode(path).isFile);    // Retrieving the hash from the Node_Info struct of the directory watcher
+        pt.add("isFile", dw_ptr->getNode(path).isFile ? 1 : 0);    // Retrieving the hash from the Node_Info struct of the directory watcher
         pt.add("content", encodedData);
+        res = 1;
     } catch (const std::ios_base::failure &err) {
-        throw;
+        res = 0;
     } catch (const boost::property_tree::ptree_bad_data &err) {
-        throw;
+        res = 0;
     }
+    return res;
 }
 
 void Client::log_and_close(const std::string& message) {

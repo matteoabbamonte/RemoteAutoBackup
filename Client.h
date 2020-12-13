@@ -80,13 +80,13 @@ class Client {
     void handle_reconnection_timer();
 
     /// Manages the sending of the message containing all the local paths
-    void handle_sync();
+    int handle_sync();
 
     /// Manages the decoding of the message and takes the needed actions
     void handle_status(Message msg);
 
     /// Encodes the content of the given file, and adds its info to the json that has to be sent
-    void read_file(const std::string& path, const std::string& path_to_send, boost::property_tree::ptree& pt);
+    int read_file(const std::string& path, const std::string& path_to_send, boost::property_tree::ptree& pt);
 
     /// Outputs the passed string and calls the close method
     void log_and_close(const std::string&);
