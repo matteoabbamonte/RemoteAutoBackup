@@ -63,7 +63,7 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     /// Decodes message and takes the needed actions
     void request_handler(Message msg);
 
-    void log_and_report(std::string response, const std::string& log);
+    void log_and_report(const std::string& response, const std::string& log);
 
 public:
 

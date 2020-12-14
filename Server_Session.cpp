@@ -241,7 +241,7 @@ void Server_Session::request_handler(Message msg) {
     }
 }
 
-void Server_Session::log_and_report(std::string response, const std::string& log) {
+void Server_Session::log_and_report(const std::string& response, const std::string& log) {
     Message response_msg;
     std::cerr << log << std::endl;
     if (!response_msg.encode_message(7, response)) {

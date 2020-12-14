@@ -461,3 +461,5 @@ Client::~Client() {
     if (input_reader.joinable()) input_reader.join();             // Joining the input reader thread before shutting down
     if (directory_watcher.joinable()) directory_watcher.join();   // Joining the directory watcher thread before shutting down
 }
+
+/// quando creo un file dentro una cartella il server non aggiorna l'hash della cartella
