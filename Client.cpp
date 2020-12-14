@@ -51,35 +51,31 @@ void Client::do_write() {
                     response_timer->async_wait([this](const boost::system::error_code &error){
                         if (!error) log_and_close("Timeout expired, closing session.");
                     });
-                    try {
-                        std::string key;
-                        int header_int = const_cast<Message&>(msg).get_header();
-                        if (header_int == 999) log_and_close("Error while setting timeout. ");
-                        auto header = static_cast<action_type>(header_int);
-                        switch (header) {
-                            case action_type::login : {
-                                key = "login";
-                                break;
-                            }
-                            case action_type::synchronize : {
-                                key = "synch";
-                                break;
-                            }
-                            default: {
-                                auto data = const_cast<Message&>(msg).get_pt_data();
-                                if (data.empty()) log_and_close("Error while setting timeout. ");
-                                key = data.get<std::string>("path", "none");
-                                if (key == "none") log_and_close("Error while setting timeout. ");
-                                break;
-                            }
+                    std::string key;
+                    int header_int = const_cast<Message&>(msg).get_header();
+                    if (header_int == 999) log_and_close("Error while setting timeout. ");
+                    auto header = static_cast<action_type>(header_int);
+                    switch (header) {
+                        case action_type::login : {
+                            key = "login";
+                            break;
                         }
-                        ack_tracker[key] = std::move(response_timer);
-                        std::lock_guard lg(wq_mutex);   // Lock in order to guarantee thread safe pop operation
-                        write_queue_c.pop();
-                        if (!write_queue_c.empty()) do_write();
-                    } catch (const boost::property_tree::ptree_error &err) {
-                        log_and_close("Error while setting timeout. ");
+                        case action_type::synchronize : {
+                            key = "synch";
+                            break;
+                        }
+                        default: {
+                            auto data = const_cast<Message&>(msg).get_pt_data();
+                            if (data.empty()) log_and_close("Error while setting timeout. ");
+                            key = data.get<std::string>("path", "none");
+                            if (key == "none") log_and_close("Error while setting timeout. ");
+                            break;
+                        }
                     }
+                    ack_tracker[key] = std::move(response_timer);
+                    std::lock_guard lg(wq_mutex);   // Lock in order to guarantee thread safe pop operation
+                    write_queue_c.pop();
+                    if (!write_queue_c.empty()) do_write();
                 } else {
                     if (*running_client) {
                         *running_watcher = false;   // Signaling to the directory watcher the end of the client session

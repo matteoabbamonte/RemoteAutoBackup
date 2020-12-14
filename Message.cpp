@@ -103,8 +103,7 @@ int Message::encode_message(int header, const std::string& data) {
     try {
         pt.add("header", header);
         pt.add("data", data);
-        zip_message();
-        res = 1;
+        res = zip_message();
     } catch (const boost::property_tree::ptree_error &err) {
         res = 0;
     }
@@ -119,8 +118,7 @@ int Message::encode_message(int header, const boost::property_tree::ptree& data)
         std::string file_string(file_stream.str());
         pt.add("header", header);
         pt.add("data", file_string);
-        zip_message();
-        res = 1;
+        res = zip_message();
     } catch (const boost::property_tree::ptree_error &err) {
         res = 0;
     }
