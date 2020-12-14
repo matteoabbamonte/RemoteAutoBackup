@@ -104,30 +104,18 @@ void Server_Session::update_paths(const std::string& path, const std::string& ha
 
 void Server_Session::update_db() {
     auto delay = boost::chrono::milliseconds(5000)/1000;
-    while (delay.count() <= 20) {
-        if (successful_first_loading) {   // If the paths map has been loaded with the db copy, then update
-            try {
-                bool result;
-                do {
-                    result = db.update_db_paths(paths, username);
-                    if (!result) {
-                        std::cout << "Waiting for " << delay.count() << " sec..." << std::endl;
-                        boost::this_thread::sleep_for(delay);   // Waiting for an increasing amount of time
-                        delay *= 2;
-                    }
-                } while (!result && delay.count() <= 20);    // Looping until either the db is correctly accessed or the delay is too high
-                if (result) std::cout << "Database successfully updated" << std::endl;
-                else std::cout << "Database not updated" << std::endl;
-                delay = boost::chrono::milliseconds(30);     // Setting the delay to a value that can break the external loop
-            } catch (const boost::property_tree::ptree_error &err) {
+    if (successful_first_loading) {   // If the paths map has been loaded with the db copy, then update
+        bool result;
+        do {
+            result = db.update_db_paths(paths, username);
+            if (!result) {
                 std::cout << "Waiting for " << delay.count() << " sec..." << std::endl;
-                if (delay.count() <= 20) {
-                    boost::this_thread::sleep_for(delay);
-                    delay *= 2;
-                }
-                if (delay.count() > 20) std::cout << "Database not updated" << std::endl;
+                boost::this_thread::sleep_for(delay);   // Waiting for an increasing amount of time
+                delay *= 2;
             }
-        } else break;
+        } while (!result && delay.count() <= 20);    // Looping until either the db is correctly accessed or the delay is too high
+        if (result) std::cout << "Database successfully updated" << std::endl;
+        else std::cout << "Database not updated" << std::endl;
     }
 }
 

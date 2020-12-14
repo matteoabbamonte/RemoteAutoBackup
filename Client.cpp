@@ -47,7 +47,7 @@ void Client::do_write() {
             [this, msg](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
                     auto response_timer = std::make_unique<boost::asio::system_timer>(io_context_);
-                    response_timer->expires_from_now(boost::asio::chrono::minutes(10));
+                    response_timer->expires_from_now(boost::asio::chrono::minutes(10)); /// da gestire
                     response_timer->async_wait([this](const boost::system::error_code &error){
                         if (!error) log_and_close("Timeout expired, closing session.");
                     });
@@ -108,13 +108,13 @@ void Client::set_username(std::string &user) {
 
 void Client::set_password(std::string &pwd) {
     unsigned char digest[SHA256_DIGEST_LENGTH];
-    SHA256_CTX sha256;
+    SHA256_CTX sha256;  /// ritornano tutte 1 se riescono e 0 se non riescono
     SHA256_Init(&sha256);
     SHA256_Update(&sha256, pwd.data(), pwd.length());
     SHA256_Final(digest, &sha256);
     std::stringstream ss;
-    for (unsigned char ch : digest) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << (int)ch;
+    for (auto ch : digest) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << (int) ch;
     }
     cred.password = ss.str();
 }
@@ -168,6 +168,7 @@ void Client::do_start_directory_watcher() {
             || boost::filesystem::is_directory(boost::filesystem::path(path)) || status == FileStatus::erased) {
                 boost::property_tree::ptree pt;
                 int action_type = 999;     // Setting action type to an unreachable (wrong) value
+                if (path_to_watch.size() + 1 >= path.size()) log_and_close("Error while truncating the path of the element. ");
                 std::string path_to_send = path.substr(path_to_watch.size() + 1);   // Preparing only the name of the file or directory
                 while (path_to_send.find('.') < path_to_send.size())    // Making the path compatible with json polices
                     path_to_send.replace(path_to_send.find('.'), 1, ":");
@@ -307,6 +308,7 @@ int Client::handle_sync() {
         boost::property_tree::ptree pt;
         for (const auto& tuple : dw_ptr->getPaths()) {  // Looping over the path map
             std::string path(tuple.first);
+            if (path_to_watch.size()+1 >= path.size()) log_and_close("Error while truncating the path of the element. ");
             path = path.substr(path_to_watch.size()+1);    // Taking only the file or directory name
             while (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");    // Making the path compatible with json polices
             pt.add(path, tuple.second.hash);    // Adding the node to the json
@@ -328,14 +330,13 @@ int Client::handle_sync() {
 void Client::handle_status(Message msg) {
     try {
         if (!msg.decode_message()) log_and_close("Error while decoding server message, closing session. ");
-        int header = msg.get_header();
+        int status = msg.get_header();
         auto data = msg.get_str_data();
-        if (data.empty() || header == 999)
+        if (data.empty() || status == 999)
             log_and_close("Error while communicating with server, closing session. ");
-        auto status = static_cast<status_type>(header);   // Casting header to status
         switch (status) {
             case status_type::in_need : {
-                ack_tracker["synch"]->cancel();
+                ack_tracker["synch"]->cancel(); /// da gestire
                 ack_tracker.erase("synch");
                 std::string separator = "||";
                 size_t pos;
@@ -361,13 +362,13 @@ void Client::handle_status(Message msg) {
                 break;
             }
             case status_type::no_need : {
-                ack_tracker["synch"]->cancel();
+                ack_tracker["synch"]->cancel(); /// da gestire
                 ack_tracker.erase("synch");
                 break;
             }
             case status_type::unauthorized : {
                 std::cerr << "Unauthorized. ";
-                ack_tracker["login"]->cancel();
+                ack_tracker["login"]->cancel(); /// da gestire
                 ack_tracker.erase("login");
                 close();    // If the login process failed, then close the current session
                 break;
@@ -397,7 +398,7 @@ void Client::handle_status(Message msg) {
             }
             case status_type::authorized : {
                 std::cout << "Authorized." << std::endl;
-                ack_tracker["login"]->cancel();
+                ack_tracker["login"]->cancel(); /// da gestire
                 ack_tracker.erase("login");
                 do_start_directory_watcher();   // Starting the directory watcher
                 if (!handle_sync()) log_and_close("Error while communicating with server, closing session. ");  // Starting the synchronization procedure
@@ -405,7 +406,7 @@ void Client::handle_status(Message msg) {
             }
             default : {
                 std::cout << "Operation completed." << std::endl;
-                ack_tracker[data.substr(0, data.rfind(' '))]->cancel();
+                ack_tracker[data.substr(0, data.rfind(' '))]->cancel(); /// da gestire
                 ack_tracker.erase(data.substr(0, data.rfind(' ')));
             }
         }
@@ -446,7 +447,10 @@ void Client::close() {
     *running_client = *running_watcher = false;           // Closing watcher thread and setting the client session to not running
     for (auto & it : ack_tracker) it.second->cancel();    // Canceling every timer in the ack_tracker map
     boost::asio::post(io_context_, [this]() {   // Requesting the io_context to invoke the given handler and returning immediately
-        if (socket_.is_open()) socket_.close();           // Closing the socket
+        if (socket_.is_open()) {
+            socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+            socket_.close();    // Closing the socket
+        }
         std::unique_lock ul(input_mutex);             // Unique lock in order to use the cv wait
         std::cerr << "Do you want to reconnect? (y/n): ";
         cv.wait(ul);    // Waiting for the user decision about the reconnection attempt

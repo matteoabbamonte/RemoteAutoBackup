@@ -53,7 +53,7 @@ std::tuple<bool, bool> Database_Connection::get_paths(std::map<std::string, std:
                         paths[pair.first] = hash;
                     }
                 } catch (const boost::property_tree::ptree_error &err) {
-                    throw;
+                    db_availability = false;
                 }
             }
         } else {
@@ -65,8 +65,7 @@ std::tuple<bool, bool> Database_Connection::get_paths(std::map<std::string, std:
     } else {
         db_availability = false;
     }
-    std::tuple<bool, bool> found_avail = {found, db_availability};
-    return found_avail;
+    return {found, db_availability};
 }
 
 bool Database_Connection::update_db_paths(std::map<std::string, std::string> &paths, const std::string& username) {
@@ -83,9 +82,9 @@ bool Database_Connection::update_db_paths(std::map<std::string, std::string> &pa
         }
     } catch (const boost::property_tree::ptree_error &err) {
         std::cerr << "Error while writing json." << std::endl;
-        throw;
+        db_availability = false;
     }
-    if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK) {
+    if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK && db_availability) {
         std::string sqlStatement;
         if (paths.empty()) {    // If the map is empty then set the field to NULL
             sqlStatement = std::string("UPDATE client SET paths = NULL WHERE username = '") + username + std::string("';");
