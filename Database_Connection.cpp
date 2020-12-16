@@ -10,8 +10,7 @@ std::tuple<bool, bool> Database_Connection::check_database(const std::string& us
     if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK) {
         std::string sqlStatement = std::string("SELECT COUNT(*) FROM Client WHERE username = '") + username + std::string("' AND password = '") + password + std::string("';");
         sqlite3_stmt *statement;    // Representing a single sql statement
-        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);  // Compiling the sql statement into a bytecode saved in statement structure
-        if (res == SQLITE_OK) {
+        if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr) == SQLITE_OK) {    // Compiling the sql statement into a bytecode saved in statement structure
             while (sqlite3_step(statement) == SQLITE_ROW) {    // Running the bytecode of the sql statement
                 count = sqlite3_column_int(statement, 0);
             }
@@ -92,8 +91,7 @@ bool Database_Connection::update_db_paths(std::map<std::string, std::string> &pa
             sqlStatement = std::string("UPDATE client SET paths = '") + map_to_stream.str() + std::string("' WHERE username = '") + username + std::string("';");
         }
         sqlite3_stmt *statement;   // Representing a single sql statement
-        int res = sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr);  // Compiling the sql statement into a bytecode saved in statement structure
-        if (res == SQLITE_OK) {
+        if (sqlite3_prepare_v2(conn, sqlStatement.c_str(), -1, &statement, nullptr) == SQLITE_OK) {    // Compiling the sql statement into a bytecode saved in statement structure
             sqlite3_step(statement);    // Running the bytecode of the sql statement
         } else {
             std::cerr << "Database Error, " << sqlite3_errmsg(conn) << std::endl;

@@ -232,11 +232,11 @@ void Client::do_start_directory_watcher() {
 void Client::handle_connection_failures() {
     boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {    // Retrying the connection request to the socket
         if (!ec) {
-            delay = boost::chrono::milliseconds(5000);  // Resetting delay to the initial value
+            delay = boost::chrono::seconds(5);  // Resetting delay to the initial value
             get_credentials();
             do_read();
         } else {
-            auto wait = boost::chrono::milliseconds(delay)/1000;
+            auto wait = boost::chrono::milliseconds(delay);
             std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
             boost::this_thread::sleep_for(delay);
             if (wait.count() >= 20) {
@@ -265,7 +265,7 @@ void Client::handle_connection_failures() {
 void Client::handle_reading_failures() {
     boost::asio::async_connect(socket_, endpoints, [this](boost::system::error_code ec, const tcp::endpoint&) {    // Retrying the connection request to the socket
         if (!ec) {
-            delay = boost::chrono::milliseconds(5000);  // Resetting delay to the initial value
+            delay = boost::chrono::seconds(5);  // Resetting delay to the initial value
             timer.stop();   // Stopping the timer in order to measure the time between one failure and the following one
             Message login_message;
             if (!login_message.put_credentials(cred.username, cred.password))  // Re-creating the login message with the saved credentials in order to automatize the reconnection attempt
@@ -275,7 +275,7 @@ void Client::handle_reading_failures() {
             do_read();   // Restarting the reading from socket procedure if the reconnection goes well
             handle_reconnection_timer();
         } else {
-            auto wait = boost::chrono::milliseconds(delay)/1000;
+            auto wait = boost::chrono::seconds(delay);
             std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
             boost::this_thread::sleep_for(delay);
             if (wait.count() >= 20) {
@@ -304,7 +304,7 @@ void Client::handle_reconnection_timer() {
 int Client::handle_sync() {
     int res;
     try {
-        delay = boost::chrono::milliseconds(5000);  // Resetting delay to the initial value
+        delay = boost::chrono::seconds(5);  // Resetting delay to the initial value
         boost::property_tree::ptree pt;
         for (const auto& tuple : dw_ptr->getPaths()) {  // Looping over the path map
             std::string path(tuple.first);
@@ -374,7 +374,7 @@ void Client::handle_status(Message msg) {
                 break;
             }
             case status_type::service_unavailable : {
-                auto wait = boost::chrono::milliseconds(delay)/1000;
+                auto wait = boost::chrono::seconds(delay);
                 std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
                 boost::this_thread::sleep_for(delay);
                 if (data == "login" || data == "Communication error") {                 // If the server failed during login or any other process except from synchronization

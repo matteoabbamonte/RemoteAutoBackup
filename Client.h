@@ -33,7 +33,7 @@ class Client {
     boost::thread directory_watcher;
     std::string path_to_watch;
     int reconnection_counter = 0;
-    boost::chrono::milliseconds delay;
+    boost::chrono::seconds delay;
     boost::timer::cpu_timer timer;
     std::shared_ptr<bool> running_client;
     std::shared_ptr<bool> running_watcher;
