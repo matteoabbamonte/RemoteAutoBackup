@@ -68,7 +68,8 @@ std::string Server_Session::do_write_element(action_type header, const boost::pr
         while (relative_path.find(':') < relative_path.size())     // Resetting the original path format of the file or directory
             relative_path.replace(relative_path.find(':'), 1, ".");
         if (header == action_type::create && !isFile) {     // Creating a directory with the specified name
-            if (boost::filesystem::create_directory(relative_path)) update_paths(path, hash);
+            boost::filesystem::create_directory(relative_path);
+            update_paths(path, hash);
         } else {        // Creating a file with the specified name
             auto content = data_pt.get<std::string>("content", "none");
             if (content == "none")

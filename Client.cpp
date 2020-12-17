@@ -53,7 +53,7 @@ void Client::do_write() {
                     });
                     std::string key;
                     int header_int = const_cast<Message&>(msg).get_header();
-                    if (header_int == 999) log_and_close("Error while setting timeout. ");
+                    if (header_int == 999) log_and_close("Error while getting the header of the message for setting timeout. ");
                     auto header = static_cast<action_type>(header_int);
                     switch (header) {
                         case action_type::login : {
@@ -66,9 +66,9 @@ void Client::do_write() {
                         }
                         default: {
                             auto data = const_cast<Message&>(msg).get_pt_data();
-                            if (data.empty()) log_and_close("Error while setting timeout. ");
+                            if (data.empty()) log_and_close("Error while getting data for setting timeout. ");
                             key = data.get<std::string>("path", "none");
-                            if (key == "none") log_and_close("Error while setting timeout. ");
+                            if (key == "none") log_and_close("Error while getting path key for setting timeout. ");
                             break;
                         }
                     }
@@ -462,4 +462,4 @@ Client::~Client() {
     if (directory_watcher.joinable()) directory_watcher.join();   // Joining the directory watcher thread before shutting down
 }
 
-/// quando creo un file dentro una cartella il server non aggiorna l'hash della cartella
+/// update della cartella non funziona credo a causa del server
