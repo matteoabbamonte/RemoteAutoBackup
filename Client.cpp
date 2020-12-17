@@ -66,9 +66,15 @@ void Client::do_write() {
                         }
                         default: {
                             auto data = const_cast<Message&>(msg).get_pt_data();
-                            if (data.empty()) log_and_close("Error while getting data for setting timeout. ");
+                            if (data.empty()) {
+                                log_and_close("Error while getting data for setting timeout. ");
+                                break;
+                            }
                             key = data.get<std::string>("path", "none");
-                            if (key == "none") log_and_close("Error while getting path key for setting timeout. ");
+                            if (key == "none") {
+                                log_and_close("Error while getting path key for setting timeout. ");
+                                break;
+                            }
                             break;
                         }
                     }
@@ -463,3 +469,5 @@ Client::~Client() {
 }
 
 /// update della cartella non funziona credo a causa del server
+
+///log and close non attende l'input se viene sparata nella do_write nella default
