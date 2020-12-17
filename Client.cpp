@@ -191,17 +191,14 @@ void Client::do_start_directory_watcher() {
                         break;
                     }
                     case FileStatus::modified : {
-                        if (isFile) {
-                            std::cout << "File modified: " << path << '\n';
-                            if (!read_file(path, path_to_send, pt)) {
+                        if (isFile) std::cout << "File modified: " << path << '\n';
+                        else std::cout << "Directory modified: " << path << '\n';
+                        if (!read_file(path, path_to_send, pt)) {
                                 std::cerr << "Error while opening the file: " << path_to_send << " It won't be sent." << std::endl;
                                 paths_to_ignore.emplace_back(path_to_send);    // Adding the path of the file to the black list for removal
                                 break;
-                            }
-                            action_type = 3;
-                        } else {
-                            std::cout << "Directory modified: " << path << '\n';
                         }
+                        action_type = 3;
                         break;
                     }
                     case FileStatus::erased : {

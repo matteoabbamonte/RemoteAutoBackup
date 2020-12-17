@@ -220,6 +220,7 @@ void Server_Session::request_handler(Message msg) {
             }
             case (action_type::update) : {
                 std::string path = do_write_element(header, data_pt);
+                std::cout << "------------" << path << std::endl;
                 if (path.empty()) log_and_report("Communication error", "Error while updating the element");
                 status_type = 3;
                 response_str = std::string(path) + std::string(" updated");
