@@ -127,7 +127,7 @@ Diff_paths Server_Session::compare_paths(ptree &client_pt) {
     std::vector<std::string> toAdd;
     std::vector<std::string> toRem;
     for (auto &entry : client_pt) {     // Scanning received map in search for new elements
-        if (entry.first == "empty") {
+        if (entry.first == "empty" && entry.second.data() == "directory") {
             toAdd.clear();
             break;  // If the json contains the message "empty: directory" then there is nothing to add in the server
         }

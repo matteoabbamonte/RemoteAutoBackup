@@ -495,5 +495,3 @@ Client::~Client() {
     if (input_reader.joinable()) input_reader.join();             // Joining the input reader thread before shutting down
     if (directory_watcher.joinable()) directory_watcher.join();   // Joining the directory watcher thread before shutting down
 }
-
-///log and close non attende l'input se viene sparata nella do_write nella default
