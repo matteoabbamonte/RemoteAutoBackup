@@ -185,8 +185,8 @@ void Server_Session::request_handler(Message msg) {
                 auto found_avail = db.get_paths(paths, username);
                 if (std::get<1>(found_avail)) {     //  If the database is available
                     successful_first_loading = true;
-                    if (std::get<0>(found_avail)) {     // Comparing the maps and answering either with in_need o no_need
-                        Diff_paths diffs = compare_paths(data_pt);
+                    Diff_paths diffs = compare_paths(data_pt);
+                    if (std::get<0>(found_avail) || diffs.toAdd.empty()) {     // Comparing the maps and answering either with in_need o no_need
                         if (diffs.toAdd.empty()) {
                             status_type = 5;
                             response_str = "No need";
