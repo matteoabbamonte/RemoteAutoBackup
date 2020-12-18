@@ -21,7 +21,7 @@ void Server_Session::do_read() {
                                           request_handler(msg);
                                           do_read();
                                       } else {
-                                          if (!username.empty()) std::cout << "Client " << username << " disconnected, closing session..." << std::endl;
+                                          if (!username.empty()) std::cout << "Client " << username << " disconnected, closing session... " << std::endl;
                                           else std::cerr << "Error during login phase, closing session..." << std::endl;
                                       }
                                   });
@@ -95,8 +95,6 @@ void Server_Session::do_remove_element(const std::string& path) {
     std::string relative_path = directory + std::string("/") + std::string(path);
     while (relative_path.find(':') < relative_path.size())     // Resetting the original path format of the file or directory
         relative_path.replace(relative_path.find(':'), 1, ".");
-    /*if (!boost::filesystem::remove_all(relative_path.data()))
-        log_and_report("Communication error", "Error while deleting an element. ");*/
     boost::filesystem::remove_all(relative_path.data());
     paths.erase(path);
     update_db();
@@ -220,7 +218,6 @@ void Server_Session::request_handler(Message msg) {
             }
             case (action_type::update) : {
                 std::string path = do_write_element(header, data_pt);
-                std::cout << "------------" << path << std::endl;
                 if (path.empty()) log_and_report("Communication error", "Error while updating the element");
                 status_type = 3;
                 response_str = std::string(path) + std::string(" updated");
