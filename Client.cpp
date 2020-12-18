@@ -123,14 +123,12 @@ void Client::set_username(std::string &user) {
 
 void Client::set_password(std::string &pwd) {
     unsigned char digest[SHA256_DIGEST_LENGTH];
-    SHA256_CTX sha256;  /// ritornano tutte 1 se riescono e 0 se non riescono
-    SHA256_Init(&sha256);
-    SHA256_Update(&sha256, pwd.data(), pwd.length());
-    SHA256_Final(digest, &sha256);
+    SHA256_CTX sha256;
+    if (!SHA256_Init(&sha256) || !SHA256_Update(&sha256, pwd.data(), pwd.length()) || !SHA256_Final(digest, &sha256))
+        log_and_close("Error while hashing password");
     std::stringstream ss;
-    for (auto ch : digest) {
+    for (auto ch : digest)
         ss << std::hex << std::setw(2) << std::setfill('0') << (int) ch;
-    }
     cred.password = ss.str();
 }
 
