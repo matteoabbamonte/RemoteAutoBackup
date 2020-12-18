@@ -46,8 +46,7 @@ void Client::do_write() {
     boost::asio::async_write(socket_, boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
             [this, msg](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
-                    auto response_timer = std::make_unique<boost::asio::system_timer>(io_context_);
-                    response_timer->expires_from_now(boost::asio::chrono::minutes(10)); /// da gestire
+                    auto response_timer = std::make_unique<boost::asio::system_timer>(io_context_, boost::asio::chrono::minutes(10));
                     response_timer->async_wait([this](const boost::system::error_code &error){
                         if (!error) log_and_close("Timeout expired, closing session.");
                     });
@@ -67,11 +66,21 @@ void Client::do_write() {
                         default: {
                             auto data = const_cast<Message&>(msg).get_pt_data();
                             if (data.empty()) {
+                                try {
+                                    response_timer->cancel();
+                                } catch (const boost::system::system_error &err) {
+                                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+                                };
                                 log_and_close("Error while getting data for setting timeout. ");
                                 break;
                             }
                             key = data.get<std::string>("path", "none");
                             if (key == "none") {
+                                try {
+                                    response_timer->cancel();
+                                } catch (const boost::system::system_error &err) {
+                                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+                                };
                                 log_and_close("Error while getting path key for setting timeout. ");
                                 break;
                             }
@@ -343,7 +352,11 @@ void Client::handle_status(Message msg) {
             log_and_close("Error while communicating with server, closing session. ");
         switch (status) {
             case status_type::in_need : {
-                ack_tracker["synch"]->cancel(); /// da gestire
+                try {
+                    ack_tracker["synch"]->cancel();
+                } catch (const boost::system::system_error &err) {
+                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+                };
                 ack_tracker.erase("synch");
                 std::string separator = "||";
                 size_t pos;
@@ -369,13 +382,21 @@ void Client::handle_status(Message msg) {
                 break;
             }
             case status_type::no_need : {
-                ack_tracker["synch"]->cancel(); /// da gestire
+                try {
+                    ack_tracker["synch"]->cancel();
+                } catch (const boost::system::system_error &err) {
+                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+                };
                 ack_tracker.erase("synch");
                 break;
             }
             case status_type::unauthorized : {
                 std::cerr << "Unauthorized. ";
-                ack_tracker["login"]->cancel(); /// da gestire
+                try {
+                    ack_tracker["login"]->cancel();
+                } catch (const boost::system::system_error &err) {
+                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+                };
                 ack_tracker.erase("login");
                 close();    // If the login process failed, then close the current session
                 break;
@@ -405,7 +426,11 @@ void Client::handle_status(Message msg) {
             }
             case status_type::authorized : {
                 std::cout << "Authorized." << std::endl;
-                ack_tracker["login"]->cancel(); /// da gestire
+                try {
+                    ack_tracker["login"]->cancel();
+                } catch (const boost::system::system_error &err) {
+                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+                };
                 ack_tracker.erase("login");
                 do_start_directory_watcher();   // Starting the directory watcher
                 if (!handle_sync()) log_and_close("Error while communicating with server, closing session. ");  // Starting the synchronization procedure
@@ -413,7 +438,11 @@ void Client::handle_status(Message msg) {
             }
             default : {
                 std::cout << "Operation completed." << std::endl;
-                ack_tracker[data.substr(0, data.rfind(' '))]->cancel(); /// da gestire
+                try {
+                    ack_tracker[data.substr(0, data.rfind(' '))]->cancel();
+                } catch (const boost::system::system_error &err) {
+                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+                };
                 ack_tracker.erase(data.substr(0, data.rfind(' ')));
             }
         }
@@ -468,7 +497,5 @@ Client::~Client() {
     if (input_reader.joinable()) input_reader.join();             // Joining the input reader thread before shutting down
     if (directory_watcher.joinable()) directory_watcher.join();   // Joining the directory watcher thread before shutting down
 }
-
-/// update della cartella non funziona credo a causa del server
 
 ///log and close non attende l'input se viene sparata nella do_write nella default
