@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
             boost::asio::ip::tcp::resolver resolver(io_context);
             auto endpoints = resolver.resolve(argv[1], argv[2]);
             auto dw = std::make_shared<DirectoryWatcher>(path_to_watch, boost::chrono::milliseconds(500), running_watcher);
-            Client cl(io_context, endpoints, running_client, path_to_watch, dw, stop, running_watcher);
+            Client cl(io_context, endpoints, path_to_watch, dw, stop, running_client, running_watcher);
             io_context.run();
         } while (!*stop);
 

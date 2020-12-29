@@ -83,7 +83,7 @@ bool Database_Connection::update_db_paths(std::map<std::string, std::string> &pa
         std::cerr << "Error while writing json." << std::endl;
         db_availability = false;
     }
-    if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK && db_availability) {
+    if (sqlite3_open(db_name.data(), &conn) == SQLITE_OK && db_availability) {  // If the db can be opened and there are no other errors
         std::string sqlStatement;
         if (paths.empty()) {    // If the map is empty then set the field to NULL
             sqlStatement = std::string("UPDATE client SET paths = NULL WHERE username = '") + username + std::string("';");

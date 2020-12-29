@@ -91,7 +91,7 @@ class Client {
     /// Outputs the passed string and calls the close method
     void log_and_close(const std::string&);
 
-    /// Closes the socket client side, and waits for an answer to the reconnect attempt
+    /// Closes the socket and waits for an answer to the reconnect attempt
     void close();
 
 public:

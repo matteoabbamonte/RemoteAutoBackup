@@ -63,6 +63,7 @@ class Server_Session : public std::enable_shared_from_this<Server_Session> {
     /// Decodes message and takes the needed actions
     void request_handler(Message msg);
 
+    /// Outputs the passed string, responds to the client with the given string and closes the socket
     void log_and_report(const std::string& response, const std::string& log);
 
 public:

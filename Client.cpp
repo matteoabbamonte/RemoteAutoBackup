@@ -86,8 +86,8 @@ void Client::do_write() {
                                 log_and_close("Error while getting data for setting timeout. ");
                                 break;
                             }
-                            key = data.get<std::string>("path", "none");
-                            if (key == "none") {
+                            key = data.get<std::string>("path", "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j");
+                            if (key == "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j") {
                                 try {
                                     response_timer->cancel();   // if key is "none" due to an error then the timer is canceled in order to avoid the shutdown
                                 } catch (const boost::system::system_error &err) {
@@ -464,6 +464,7 @@ void Client::handle_status(Message msg) {
 
 int Client::read_file(const std::string& path, const std::string& path_to_send, boost::property_tree::ptree& pt) {
     std::ifstream inFile;
+    inFile.exceptions(inFile.exceptions() | std::ios::failbit);    // Preparing f to throw if failbit gets set
     int res;
     try {
         std::lock_guard lg(fs_mutex);   // Lock in order to guarantee thread safe read operation
