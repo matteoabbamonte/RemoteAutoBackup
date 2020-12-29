@@ -2,11 +2,23 @@
 
 #define delimiter "\n}\n"
 
-Client::Client(boost::asio::io_context& io_context, tcp::resolver::results_type  endpoints,
-        std::shared_ptr<bool> &running_client, std::string path_to_watch, std::shared_ptr<DirectoryWatcher> &dw, std::shared_ptr<bool> &stop, std::shared_ptr<bool> &running_watcher)
-        : io_context_(io_context), socket_(io_context), endpoints(std::move(endpoints)), running_client(running_client),
-        path_to_watch(std::move(path_to_watch)), dw_ptr(dw), stop(stop), running_watcher(running_watcher), delay(5000) {
-            do_connect();
+Client::Client(boost::asio::io_context& io_context,
+               tcp::resolver::results_type endpoints,
+               std::string path_to_watch,
+               std::shared_ptr<DirectoryWatcher> &dw,
+               std::shared_ptr<bool> &stop,
+               std::shared_ptr<bool> &running_client,
+               std::shared_ptr<bool> &running_watcher)
+               : io_context_(io_context),
+               socket_(io_context),
+               endpoints(std::move(endpoints)),
+               path_to_watch(std::move(path_to_watch)),
+               dw_ptr(dw),
+               stop(stop),
+               running_client(running_client),
+               running_watcher(running_watcher),
+               delay(5000) {
+    do_connect();
 }
 
 void Client::do_connect() {
@@ -46,11 +58,11 @@ void Client::do_write() {
     boost::asio::async_write(socket_, boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
             [this, msg](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
-                    auto response_timer = std::make_unique<boost::asio::system_timer>(io_context_, boost::asio::chrono::minutes(10));
-                    response_timer->async_wait([this](const boost::system::error_code &error){
-                        if (!error) log_and_close("Timeout expired, closing session.");
-                    });
-                    std::string key;
+                    auto response_timer = std::make_unique<boost::asio::system_timer>(io_context_, boost::asio::chrono::minutes(10));   // Setting a 10 minutes timer
+                    response_timer->async_wait([this](const boost::system::error_code &error){                                      // after which, if the client
+                        if (!error) log_and_close("Timeout expired, closing session.");                                            // didn't receive the corresponding
+                    });                                                                                                                     // ack from the server then logs the
+                    std::string key;                                                                                                        // error and closes the current session
                     int header_int = const_cast<Message&>(msg).get_header();
                     if (header_int == 999) log_and_close("Error while getting the header of the message for setting timeout. ");
                     auto header = static_cast<action_type>(header_int);
@@ -67,7 +79,7 @@ void Client::do_write() {
                             auto data = const_cast<Message&>(msg).get_pt_data();
                             if (data.empty()) {
                                 try {
-                                    response_timer->cancel();
+                                    response_timer->cancel();   // if data is empty due to an error then the timer is canceled in order to avoid the shutdown
                                 } catch (const boost::system::system_error &err) {
                                     std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
                                 };
@@ -77,7 +89,7 @@ void Client::do_write() {
                             key = data.get<std::string>("path", "none");
                             if (key == "none") {
                                 try {
-                                    response_timer->cancel();
+                                    response_timer->cancel();   // if key is "none" due to an error then the timer is canceled in order to avoid the shutdown
                                 } catch (const boost::system::system_error &err) {
                                     std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
                                 };
@@ -87,7 +99,7 @@ void Client::do_write() {
                             break;
                         }
                     }
-                    ack_tracker[key] = std::move(response_timer);
+                    ack_tracker[key] = std::move(response_timer);   // Adding the created timer to the ack tracker map
                     std::lock_guard lg(wq_mutex);   // Lock in order to guarantee thread safe pop operation
                     write_queue_c.pop();
                     if (!write_queue_c.empty()) do_write();
@@ -123,12 +135,12 @@ void Client::set_username(std::string &user) {
 
 void Client::set_password(std::string &pwd) {
     unsigned char digest[SHA256_DIGEST_LENGTH];
-    SHA256_CTX sha256;
+    SHA256_CTX sha256;  // Initializing and creating a new digest based on the password parameter
     if (!SHA256_Init(&sha256) || !SHA256_Update(&sha256, pwd.data(), pwd.length()) || !SHA256_Final(digest, &sha256))
         log_and_close("Error while hashing password");
     std::stringstream ss;
     for (auto ch : digest)
-        ss << std::hex << std::setw(2) << std::setfill('0') << (int) ch;
+        ss << std::hex << std::setw(2) << std::setfill('0') << (int) ch;    // Creating a stream starting from the digest
     cred.password = ss.str();
 }
 
@@ -250,7 +262,7 @@ void Client::handle_connection_failures() {
             get_credentials();
             do_read();
         } else {
-            auto wait = boost::chrono::milliseconds(delay);
+            auto wait = boost::chrono::seconds(delay);
             std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
             boost::this_thread::sleep_for(delay);
             if (wait.count() >= 20) {
@@ -309,7 +321,7 @@ void Client::handle_reconnection_timer() {
     auto elapsed_seconds = timer.elapsed().system/(1e9);    // Taking the number of elapsed nanoseconds scaled of 1 Billion
     if (reconnection_counter > 1000 && elapsed_seconds <= 1) {     // If the frequency of reconnection attempts is too high then close
         log_and_close("Too many reconnection attempts.");
-    } else if (elapsed_seconds > 1) {   // Else if the frequency is not too high then reset the counter and the timer;
+    } else if (elapsed_seconds > 1) {   // Else if the frequency is not too high then reset the counter and the timer
         reconnection_counter = 0;
         timer.elapsed().clear();
     }
@@ -324,7 +336,8 @@ int Client::handle_sync() {
             std::string path(tuple.first);
             if (path_to_watch.size()+1 >= path.size()) log_and_close("Error while truncating the path of the element. ");
             path = path.substr(path_to_watch.size()+1);    // Taking only the file or directory name
-            while (path.find('.') < path.size()) path.replace(path.find('.'), 1, ":");    // Making the path compatible with json polices
+            while (path.find('.') < path.size())
+                path.replace(path.find('.'), 1, ":");    // Making the path compatible with json polices
             pt.add(path, tuple.second.hash);    // Adding the node to the json
         }
         Message write_msg;
@@ -351,11 +364,11 @@ void Client::handle_status(Message msg) {
         switch (status) {
             case status_type::in_need : {
                 try {
-                    ack_tracker["synch"]->cancel();
+                    ack_tracker["synch"]->cancel();    // Canceling the timer related to the "synch" ack
                 } catch (const boost::system::system_error &err) {
                     std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
                 };
-                ack_tracker.erase("synch");
+                ack_tracker.erase("synch");    // Erasing the corresponding element from the ack map
                 std::string separator = "||";
                 size_t pos;
                 std::string path_to_send;
@@ -381,21 +394,21 @@ void Client::handle_status(Message msg) {
             }
             case status_type::no_need : {
                 try {
-                    ack_tracker["synch"]->cancel();
+                    ack_tracker["synch"]->cancel();    // Canceling the timer related to the "synch" ack
                 } catch (const boost::system::system_error &err) {
                     std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
                 };
-                ack_tracker.erase("synch");
+                ack_tracker.erase("synch");    // Erasing the corresponding element from the ack map
                 break;
             }
             case status_type::unauthorized : {
                 std::cerr << "Unauthorized. ";
                 try {
-                    ack_tracker["login"]->cancel();
+                    ack_tracker["login"]->cancel();    // Canceling the timer related to the "login" ack
                 } catch (const boost::system::system_error &err) {
                     std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
                 };
-                ack_tracker.erase("login");
+                ack_tracker.erase("login");    // Erasing the corresponding element from the ack map
                 close();    // If the login process failed, then close the current session
                 break;
             }
@@ -403,7 +416,7 @@ void Client::handle_status(Message msg) {
                 auto wait = boost::chrono::seconds(delay);
                 std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
                 boost::this_thread::sleep_for(delay);
-                if (data == "login" || data == "Communication error") {                 // If the server failed during login or any other process except from synchronization
+                if (data == "login" || data == "Communication error") {    // If the server failed during login or any other process except from synchronization
                     Message login_message;
                     if (!login_message.put_credentials(cred.username, cred.password))  // then send the credentials again to the server and retry the login
                         log_and_close("Error while communicating with server, closing session. ");
@@ -425,11 +438,11 @@ void Client::handle_status(Message msg) {
             case status_type::authorized : {
                 std::cout << "Authorized." << std::endl;
                 try {
-                    ack_tracker["login"]->cancel();
+                    ack_tracker["login"]->cancel();    // Canceling the timer related to the "login" ack
                 } catch (const boost::system::system_error &err) {
                     std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
                 };
-                ack_tracker.erase("login");
+                ack_tracker.erase("login");    // Erasing the corresponding element from the ack map
                 do_start_directory_watcher();   // Starting the directory watcher
                 if (!handle_sync()) log_and_close("Error while communicating with server, closing session. ");  // Starting the synchronization procedure
                 break;
@@ -437,11 +450,11 @@ void Client::handle_status(Message msg) {
             default : {
                 std::cout << "Operation completed." << std::endl;
                 try {
-                    ack_tracker[data.substr(0, data.rfind(' '))]->cancel();
+                    ack_tracker[data.substr(0, data.rfind(' '))]->cancel();    // Canceling the timer related to the "sent data" ack
                 } catch (const boost::system::system_error &err) {
                     std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
                 };
-                ack_tracker.erase(data.substr(0, data.rfind(' ')));
+                ack_tracker.erase(data.substr(0, data.rfind(' ')));    // Erasing the corresponding element from the ack map
             }
         }
     } catch (const std::ios_base::failure &err) {
@@ -453,7 +466,7 @@ int Client::read_file(const std::string& path, const std::string& path_to_send, 
     std::ifstream inFile;
     int res;
     try {
-        std::lock_guard lg(fs_mutex);
+        std::lock_guard lg(fs_mutex);   // Lock in order to guarantee thread safe read operation
         inFile.open(path, std::ios::in|std::ios::binary);   // Opening the file in binary mode
         std::vector<BYTE> buffer_vec;   // Creating an unsigned char vector
         char ch;
