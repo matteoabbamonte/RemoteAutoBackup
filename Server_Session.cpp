@@ -1,5 +1,7 @@
 #include "Server_Session.h"
 
+#define defaultValue "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j"
+
 Server_Session::Server_Session(tcp::socket &socket) : socket_(std::move(socket)), successful_first_loading(false) {}
 
 void Server_Session::start() {
@@ -52,11 +54,11 @@ void Server_Session::enqueue_msg(const Message &msg) {
 
 std::string Server_Session::do_write_element(action_type header, const boost::property_tree::ptree& data_pt) {
     std::lock_guard lg(fs_mutex);
-    auto path = data_pt.get<std::string>("path", "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j");
-    if (path == "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j")
+    auto path = data_pt.get<std::string>("path", defaultValue);
+    if (path == defaultValue)
         log_and_report("Communication error", "Error while decoding the path to write. ");
-    auto hash = data_pt.get<std::string>("hash", "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j");
-    if (hash == "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j")
+    auto hash = data_pt.get<std::string>("hash", defaultValue);
+    if (hash == defaultValue)
         log_and_report("Communication error", "Error while decoding the hash of the element that has to be written. ");
     auto isFile = data_pt.get<int>("isFile", 999);
     if (isFile == 999)
@@ -70,8 +72,8 @@ std::string Server_Session::do_write_element(action_type header, const boost::pr
         boost::filesystem::create_directory(relative_path);
         update_paths(path, hash);
     } else {        // Creating a file with the specified name
-        auto content = data_pt.get<std::string>("content", "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j");
-        if (content == "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j")
+        auto content = data_pt.get<std::string>("content", defaultValue);
+        if (content == defaultValue)
             log_and_report("Communication error", "Error while decoding the content fo the file that has to be written. ");
         std::vector<BYTE> decodedData = base64_decode(content);
         boost::filesystem::ofstream outFile(relative_path.data());
@@ -220,8 +222,8 @@ void Server_Session::request_handler(Message msg) {
                 break;
             }
             case (action_type::erase) : {
-                auto path = data_pt.get<std::string>("path", "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j");
-                if (path == "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j")
+                auto path = data_pt.get<std::string>("path", defaultValue);
+                if (path == defaultValue)
                     log_and_report("Communication error", "Error while decoding the path of the file that has to be erased. ");
                 do_remove_element(path);
                 status_type = 4;

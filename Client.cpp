@@ -1,6 +1,7 @@
 #include "Client.h"
 
 #define delimiter "\n}\n"
+#define defaultValue "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j"
 
 Client::Client(boost::asio::io_context& io_context,
                tcp::resolver::results_type endpoints,
@@ -86,8 +87,8 @@ void Client::do_write() {
                                                  log_and_close("Error while getting data for setting timeout. ");
                                                  break;
                                              }
-                                             key = data.get<std::string>("path", "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j");
-                                             if (key == "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j") {
+                                             key = data.get<std::string>("path", defaultValue);
+                                             if (key == defaultValue) {
                                                  try {
                                                      response_timer->cancel();   // if key is "none" due to an error then the timer is canceled in order to avoid the shutdown
                                                  } catch (const boost::system::system_error &err) {
