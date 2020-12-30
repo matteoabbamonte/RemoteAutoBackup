@@ -96,6 +96,8 @@ void Client::do_write() {
                                                  log_and_close("Error while getting path key for setting timeout. ");
                                                  break;
                                              }
+                                             if (header == action_type::create) key += std::string(" created");
+                                             else key += std::string(" erased");
                                              break;
                                          }
                                      }
@@ -450,7 +452,8 @@ void Client::handle_status(Message msg) {
             default : {
                 std::cout << "Operation completed." << std::endl;
                 try {
-                    ack_tracker[data.substr(0, data.rfind(' '))]->cancel();    // Canceling the timer related to the "sent data" ack
+                    //std::cout << data.substr(0, data.rfind(' ')) << std::endl;
+                    ack_tracker[data]->cancel();    // Canceling the timer related to the "sent data" ack
                 } catch (const boost::system::system_error &err) {
                     std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
                 };

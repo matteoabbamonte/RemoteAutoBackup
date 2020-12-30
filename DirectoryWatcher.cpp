@@ -40,7 +40,7 @@ void DirectoryWatcher::start(const std::function<void (std::string, FileStatus, 
                 }*/
             }
         } catch (const boost::filesystem::filesystem_error &err) {
-            std::cout << "Element deleted before its insertion in the local map." << std::endl;
+            std::cerr << "Element deleted before its insertion in the local map." << std::endl;
         }
     }
 }
