@@ -25,22 +25,15 @@ void DirectoryWatcher::start(const std::function<void (std::string, FileStatus, 
                 auto last_time_edit = boost::filesystem::last_write_time(element);
                 std::string hash = make_hash(element);
                 if (!hash.empty() && paths.find(element.path().string()) == paths.end()) {    // If the element is not present in the map, then it has been created
-                    paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
+                    paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), hash };
                     action(element.path().string(), FileStatus::created, boost::filesystem::is_regular_file(element));
                 } else if (!hash.empty() && paths[element.path().string()].lastEdit != last_time_edit) {      // Else if the element in the map has a different last_time_edit, then it has been updated
-                    paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
+                    paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), hash };
                     action(element.path().string(), FileStatus::modified, boost::filesystem::is_regular_file(element));     // The command to modify that specific node is sent to the server
-                } else if (hash.empty()) std::cout << "Element deleted before its insertion in the local map." << std::endl;
-                /*if (paths.find(element.path().string()) == paths.end()) {   // If the element is not present in the map, then it has been created
-                    paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
-                    action(element.path().string(), FileStatus::created, boost::filesystem::is_regular_file(element));      // The command to create that specific node is sent to the server
-                } else if (paths[element.path().string()].lastEdit != last_time_edit) {      // Else if the element in the map has a different last_time_edit, then it has been updated
-                    paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
-                    action(element.path().string(), FileStatus::modified, boost::filesystem::is_regular_file(element));     // The command to modify that specific node is sent to the server
-                }*/
+                } else if (hash.empty()) std::cout << "Error while calculating the hash of the file: " << element.path().string() << std::endl;
             }
         } catch (const boost::filesystem::filesystem_error &err) {
-            std::cerr << "Element deleted before its insertion in the local map." << std::endl;
+            std::cout << "Element deleted before its insertion in the local map." << std::endl;
         }
     }
 }

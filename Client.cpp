@@ -97,6 +97,7 @@ void Client::do_write() {
                                                  break;
                                              }
                                              if (header == action_type::create) key += std::string(" created");
+                                             else if (header == action_type::update) key += std::string(" updated");
                                              else key += std::string(" erased");
                                              break;
                                          }
@@ -472,15 +473,17 @@ int Client::read_file(const std::string& path, const std::string& path_to_send, 
         std::lock_guard lg(fs_mutex);   // Lock in order to guarantee thread safe read operation
         inFile.open(path, std::ios::in|std::ios::binary);
         if (!inFile) res = 0;   // Opening the file in binary mode
-        std::vector<BYTE> buffer_vec;   // Creating an unsigned char vector
-        char ch;
-        while (inFile.get(ch)) buffer_vec.emplace_back(ch);    // Adding every char read from the file to the vector
-        std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
-        pt.add("path", path_to_send);
-        pt.add("hash", dw_ptr->getNode(path).hash);        // Retrieving the hash from the Node_Info struct of the directory watcher
-        pt.add("isFile", dw_ptr->getNode(path).isFile ? 1 : 0);    // Retrieving the hash from the Node_Info struct of the directory watcher
-        pt.add("content", encodedData);
-        res = 1;
+        else {
+            std::vector<BYTE> buffer_vec;   // Creating an unsigned char vector
+            char ch;
+            while (inFile.get(ch)) buffer_vec.emplace_back(ch);    // Adding every char read from the file to the vector
+            std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
+            pt.add("path", path_to_send);
+            pt.add("hash", dw_ptr->getNode(path).hash);        // Retrieving the hash from the Node_Info struct of the directory watcher
+            pt.add("isFile", dw_ptr->getNode(path).isFile ? 1 : 0);    // Retrieving the hash from the Node_Info struct of the directory watcher
+            pt.add("content", encodedData);
+            res = 1;
+        }
     } catch (const boost::property_tree::ptree_bad_data &err) {
         res = 0;
     }
