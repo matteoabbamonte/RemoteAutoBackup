@@ -4,7 +4,7 @@ DirectoryWatcher::DirectoryWatcher(std::string path_to_watch, boost::chrono::mil
         : path_to_watch(std::move(path_to_watch)), delay(delay), running_watcher(watching) {
     std::lock_guard lg(paths_mutex);    // Lock in order to guarantee thread safe access to the map
     for (boost::filesystem::directory_entry &element : boost::filesystem::recursive_directory_iterator(this->path_to_watch)) {  // Recursively iterating to path_to_watch
-            auto last_time_edit = boost::filesystem::last_write_time(element);                                                  // in order to add the elements to the paths map
+        auto last_time_edit = boost::filesystem::last_write_time(element);                                                  // in order to add the elements to the paths map
         paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
     }
 }
@@ -23,13 +23,21 @@ void DirectoryWatcher::start(const std::function<void (std::string, FileStatus, 
         try {
             for (boost::filesystem::directory_entry& element : boost::filesystem::recursive_directory_iterator(path_to_watch)) {     // Checking recursively if a file was created or modified
                 auto last_time_edit = boost::filesystem::last_write_time(element);
-                if (paths.find(element.path().string()) == paths.end()) {   // If the element is not present in the map, then it has been created
+                std::string hash = make_hash(element);
+                if (!hash.empty() && paths.find(element.path().string()) == paths.end()) {    // If the element is not present in the map, then it has been created
+                    paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
+                    action(element.path().string(), FileStatus::created, boost::filesystem::is_regular_file(element));
+                } else if (!hash.empty() && paths[element.path().string()].lastEdit != last_time_edit) {      // Else if the element in the map has a different last_time_edit, then it has been updated
+                    paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
+                    action(element.path().string(), FileStatus::modified, boost::filesystem::is_regular_file(element));     // The command to modify that specific node is sent to the server
+                } else if (hash.empty()) std::cout << "Element deleted before its insertion in the local map." << std::endl;
+                /*if (paths.find(element.path().string()) == paths.end()) {   // If the element is not present in the map, then it has been created
                     paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
                     action(element.path().string(), FileStatus::created, boost::filesystem::is_regular_file(element));      // The command to create that specific node is sent to the server
                 } else if (paths[element.path().string()].lastEdit != last_time_edit) {      // Else if the element in the map has a different last_time_edit, then it has been updated
                     paths[element.path().string()] = { last_time_edit, boost::filesystem::is_regular_file(element), make_hash(element) };
                     action(element.path().string(), FileStatus::modified, boost::filesystem::is_regular_file(element));     // The command to modify that specific node is sent to the server
-                }
+                }*/
             }
         } catch (const boost::filesystem::filesystem_error &err) {
             std::cout << "Element deleted before its insertion in the local map." << std::endl;
@@ -61,7 +69,7 @@ size_t DirectoryWatcher::node_size(boost::filesystem::directory_entry& element) 
 std::string DirectoryWatcher::make_hash(boost::filesystem::directory_entry& element) {
     unsigned char checksum[MD5_DIGEST_LENGTH];
     MD5_CTX md5;
-    MD5_Init(&md5);
+    if (!MD5_Init(&md5)) return std::string("");
     if (!boost::filesystem::is_directory(element) && node_size(element) != 0) {
         std::ifstream file;
         file.open(element.path().string(), std::ios::in|std::ios::binary);  // Opening the file that has to be hashed
@@ -72,13 +80,13 @@ std::string DirectoryWatcher::make_hash(boost::filesystem::directory_entry& elem
         while (std::getline(file, str)) {
             if (!str.empty()) buffer.append(str);   // Reading from the file into a buffer vector
         }
-        MD5_Update(&md5, buffer.data(), buffer.length());
+        if (!MD5_Update(&md5, buffer.data(), buffer.length())) return std::string("");
     } else {
         auto last_time_edit = boost::filesystem::last_write_time(element);
         std::string info = element.path().string() + std::to_string(last_time_edit) + std::to_string(node_size(element));
-        MD5_Update(&md5, info.data(), info.length());
+        if (!MD5_Update(&md5, info.data(), info.length())) return std::string("");
     }
-    MD5_Final(checksum, &md5);
+    if (!MD5_Final(checksum, &md5)) return std::string("");
     std::ostringstream sout;
     sout << std::hex << std::setfill('0');
     for (auto c: checksum) sout << std::setw(2) <<(int) c;

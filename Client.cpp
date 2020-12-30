@@ -9,15 +9,15 @@ Client::Client(boost::asio::io_context& io_context,
                std::shared_ptr<bool> &stop,
                std::shared_ptr<bool> &running_client,
                std::shared_ptr<bool> &running_watcher)
-               : io_context_(io_context),
-               socket_(io_context),
-               endpoints(std::move(endpoints)),
-               path_to_watch(std::move(path_to_watch)),
-               dw_ptr(dw),
-               stop(stop),
-               running_client(running_client),
-               running_watcher(running_watcher),
-               delay(5000) {
+        : io_context_(io_context),
+          socket_(io_context),
+          endpoints(std::move(endpoints)),
+          path_to_watch(std::move(path_to_watch)),
+          dw_ptr(dw),
+          stop(stop),
+          running_client(running_client),
+          running_watcher(running_watcher),
+          delay(5000) {
     do_connect();
 }
 
@@ -56,60 +56,60 @@ void Client::do_write() {
     std::cout << "Writing message..." << std::endl;
     auto msg = write_queue_c.front();
     boost::asio::async_write(socket_, boost::asio::dynamic_string_buffer(*write_queue_c.front().get_msg_ptr()),
-            [this, msg](boost::system::error_code ec, std::size_t length) {
-                if (!ec) {
-                    auto response_timer = std::make_unique<boost::asio::system_timer>(io_context_, boost::asio::chrono::minutes(10));   // Setting a 10 minutes timer
-                    response_timer->async_wait([this](const boost::system::error_code &error){                                      // after which, if the client
-                        if (!error) log_and_close("Timeout expired, closing session.");                                            // didn't receive the corresponding
-                    });                                                                                                                     // ack from the server then logs the
-                    std::string key;                                                                                                        // error and closes the current session
-                    int header_int = const_cast<Message&>(msg).get_header();
-                    if (header_int == 999) log_and_close("Error while getting the header of the message for setting timeout. ");
-                    auto header = static_cast<action_type>(header_int);
-                    switch (header) {
-                        case action_type::login : {
-                            key = "login";
-                            break;
-                        }
-                        case action_type::synchronize : {
-                            key = "synch";
-                            break;
-                        }
-                        default: {
-                            auto data = const_cast<Message&>(msg).get_pt_data();
-                            if (data.empty()) {
-                                try {
-                                    response_timer->cancel();   // if data is empty due to an error then the timer is canceled in order to avoid the shutdown
-                                } catch (const boost::system::system_error &err) {
-                                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
-                                };
-                                log_and_close("Error while getting data for setting timeout. ");
-                                break;
-                            }
-                            key = data.get<std::string>("path", "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j");
-                            if (key == "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j") {
-                                try {
-                                    response_timer->cancel();   // if key is "none" due to an error then the timer is canceled in order to avoid the shutdown
-                                } catch (const boost::system::system_error &err) {
-                                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
-                                };
-                                log_and_close("Error while getting path key for setting timeout. ");
-                                break;
-                            }
-                            break;
-                        }
-                    }
-                    ack_tracker[key] = std::move(response_timer);   // Adding the created timer to the ack tracker map
-                    std::lock_guard lg(wq_mutex);   // Lock in order to guarantee thread safe pop operation
-                    write_queue_c.pop();
-                    if (!write_queue_c.empty()) do_write();
-                } else {
-                    if (*running_client) {
-                        *running_watcher = false;   // Signaling to the directory watcher the end of the client session
-                        log_and_close("Error while writing. ");
-                    }
-                }
-    });
+                             [this, msg](boost::system::error_code ec, std::size_t length) {
+                                 if (!ec) {
+                                     auto response_timer = std::make_unique<boost::asio::system_timer>(io_context_, boost::asio::chrono::minutes(10));   // Setting a 10 minutes timer
+                                     response_timer->async_wait([this](const boost::system::error_code &error){                                      // after which, if the client
+                                         if (!error) log_and_close("Timeout expired, closing session.");                                            // didn't receive the corresponding
+                                     });                                                                                                                     // ack from the server then logs the
+                                     std::string key;                                                                                                        // error and closes the current session
+                                     int header_int = const_cast<Message&>(msg).get_header();
+                                     if (header_int == 999) log_and_close("Error while getting the header of the message for setting timeout. ");
+                                     auto header = static_cast<action_type>(header_int);
+                                     switch (header) {
+                                         case action_type::login : {
+                                             key = "login";
+                                             break;
+                                         }
+                                         case action_type::synchronize : {
+                                             key = "synch";
+                                             break;
+                                         }
+                                         default: {
+                                             auto data = const_cast<Message&>(msg).get_pt_data();
+                                             if (data.empty()) {
+                                                 try {
+                                                     response_timer->cancel();   // if data is empty due to an error then the timer is canceled in order to avoid the shutdown
+                                                 } catch (const boost::system::system_error &err) {
+                                                     std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+                                                 };
+                                                 log_and_close("Error while getting data for setting timeout. ");
+                                                 break;
+                                             }
+                                             key = data.get<std::string>("path", "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j");
+                                             if (key == "d4e5rf6t7nyn7hmj8m9j9mm9j8n7h6gb5fc4x3wwx5cgb78nhm9j") {
+                                                 try {
+                                                     response_timer->cancel();   // if key is "none" due to an error then the timer is canceled in order to avoid the shutdown
+                                                 } catch (const boost::system::system_error &err) {
+                                                     std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+                                                 };
+                                                 log_and_close("Error while getting path key for setting timeout. ");
+                                                 break;
+                                             }
+                                             break;
+                                         }
+                                     }
+                                     ack_tracker[key] = std::move(response_timer);   // Adding the created timer to the ack tracker map
+                                     std::lock_guard lg(wq_mutex);   // Lock in order to guarantee thread safe pop operation
+                                     write_queue_c.pop();
+                                     if (!write_queue_c.empty()) do_write();
+                                 } else {
+                                     if (*running_client) {
+                                         *running_watcher = false;   // Signaling to the directory watcher the end of the client session
+                                         log_and_close("Error while writing. ");
+                                     }
+                                 }
+                             });
 }
 
 void Client::enqueue_msg(const Message &msg) {
@@ -190,7 +190,7 @@ void Client::do_start_directory_watcher() {
     directory_watcher = boost::thread([this](){
         dw_ptr->start([this](std::string path, FileStatus status, bool isFile) {
             if (boost::filesystem::is_regular_file(boost::filesystem::path(path))   // Process only regular files, all other file types are ignored
-            || boost::filesystem::is_directory(boost::filesystem::path(path)) || status == FileStatus::erased) {
+                || boost::filesystem::is_directory(boost::filesystem::path(path)) || status == FileStatus::erased) {
                 boost::property_tree::ptree pt;
                 int action_type = 999;     // Setting action type to an unreachable (wrong) value
                 if (path_to_watch.size() + 1 >= path.size()) log_and_close("Error while truncating the path of the element. ");
@@ -427,7 +427,7 @@ void Client::handle_status(Message msg) {
                 if (wait.count() >= 20) {
                     log_and_close("Server unavailable. ");
                 } else {
-                        delay *= 2;    // If the wait is not over the limit and there is an error, then double the delay and restart the loop
+                    delay *= 2;    // If the wait is not over the limit and there is an error, then double the delay and restart the loop
                 }
                 break;
             }
@@ -464,11 +464,11 @@ void Client::handle_status(Message msg) {
 
 int Client::read_file(const std::string& path, const std::string& path_to_send, boost::property_tree::ptree& pt) {
     std::ifstream inFile;
-    inFile.exceptions(inFile.exceptions() | std::ios::failbit);    // Preparing f to throw if failbit gets set
     int res;
     try {
         std::lock_guard lg(fs_mutex);   // Lock in order to guarantee thread safe read operation
-        inFile.open(path, std::ios::in|std::ios::binary);   // Opening the file in binary mode
+        inFile.open(path, std::ios::in|std::ios::binary);
+        if (!inFile) res = 0;   // Opening the file in binary mode
         std::vector<BYTE> buffer_vec;   // Creating an unsigned char vector
         char ch;
         while (inFile.get(ch)) buffer_vec.emplace_back(ch);    // Adding every char read from the file to the vector
@@ -478,8 +478,6 @@ int Client::read_file(const std::string& path, const std::string& path_to_send, 
         pt.add("isFile", dw_ptr->getNode(path).isFile ? 1 : 0);    // Retrieving the hash from the Node_Info struct of the directory watcher
         pt.add("content", encodedData);
         res = 1;
-    } catch (const std::ios_base::failure &err) {
-        res = 0;
     } catch (const boost::property_tree::ptree_bad_data &err) {
         res = 0;
     }
