@@ -53,7 +53,7 @@ void Server_Session::enqueue_msg(const Message &msg) {
 }
 
 std::string Server_Session::do_write_element(action_type header, const boost::property_tree::ptree& data_pt) {
-    std::lock_guard lg(fs_mutex);
+    std::lock_guard lg(fs_mutex);   // Lock in order to guarantee thread safe access to the filesystem
     auto path = data_pt.get<std::string>("path", defaultValue);
     if (path == defaultValue)
         log_and_report("Communication error", "Error while decoding the path to write. ");
@@ -122,7 +122,7 @@ void Server_Session::update_db() {
     }
 }
 
-Diff_paths Server_Session::compare_paths(ptree &client_pt) {
+Diff_paths Server_Session::compare_paths(boost::property_tree::ptree &client_pt) {
     std::vector<std::string> toAdd;
     std::vector<std::string> toRem;
     for (auto &entry : client_pt) {     // Scanning received map in search for new elements

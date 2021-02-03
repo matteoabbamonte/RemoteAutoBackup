@@ -18,7 +18,7 @@ Client::Client(boost::asio::io_context& io_context,
           stop(stop),
           running_client(running_client),
           running_watcher(running_watcher),
-          delay(5000) {
+          delay(5) {
     do_connect();
 }
 
@@ -84,7 +84,10 @@ void Client::do_write() {
                                                  } catch (const boost::system::system_error &err) {
                                                      std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
                                                  };
-                                                 log_and_close("Error while getting data for setting timeout. ");
+                                                 if (*running_client) {
+                                                     *running_watcher = false;
+                                                     log_and_close("Error while getting data for setting timeout. ");
+                                                 }
                                                  break;
                                              }
                                              key = data.get<std::string>("path", defaultValue);
@@ -94,7 +97,10 @@ void Client::do_write() {
                                                  } catch (const boost::system::system_error &err) {
                                                      std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
                                                  };
-                                                 log_and_close("Error while getting path key for setting timeout. ");
+                                                 if (*running_client) {
+                                                     *running_watcher = false;
+                                                     log_and_close("Error while getting path key for setting timeout. ");
+                                                 }
                                                  break;
                                              }
                                              if (header == action_type::create) key += std::string(" created");
@@ -155,7 +161,7 @@ void Client::do_start_input_reader() {
         bool cred_done = false;    // True if the credentials have been inserted
         std::cout << "Insert username: ";
         while (std::cin >> input) {
-            if (!std::cin) close();    // If there is any error during the input process, then close.
+            if (!std::cin) log_and_close("Error during input process");    // If there is any error during the input process, then close.
             if (cred_done) {
                 if (input == "exit") {
                     if (*running_client) close();   // If the input is equal to 'exit' and the client session is still up, then close
@@ -163,12 +169,12 @@ void Client::do_start_input_reader() {
                 } else if (input == "y") {     // If the input is equal to 'y', then the thread sets the value of stop to false and notifies the input to the client thread
                     std::lock_guard lg(input_mutex);
                     *stop = false;
-                    cv.notify_all();
+                    cv.notify_all();    // Unlocks close() wait
                     break;
                 } else if (input == "n") {     // If the input is equal to 'n', then the thread sets the value of stop to true and notifies the input to the client thread
                     std::lock_guard lg(input_mutex);
                     *stop = true;
-                    cv.notify_all();
+                    cv.notify_all();    // Unlocks close() wait
                     break;
                 } else if (!*running_client){   // If the input is not an expected input and the client is not running anymore, then repeat the question
                     std::cerr << "Do you want to reconnect? (y/n): ";
@@ -359,111 +365,107 @@ int Client::handle_sync() {
 }
 
 void Client::handle_status(Message msg) {
-    try {
-        if (!msg.decode_message()) log_and_close("Error while decoding server message, closing session. ");
-        int status = msg.get_header();
-        auto data = msg.get_str_data();
-        if (data.empty() || status == 999)
-            log_and_close("Error while communicating with server, closing session. ");
-        switch (status) {
-            case status_type::in_need : {
-                try {
-                    ack_tracker["synch"]->cancel();    // Canceling the timer related to the "synch" ack
-                } catch (const boost::system::system_error &err) {
-                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
-                };
-                ack_tracker.erase("synch");    // Erasing the corresponding element from the ack map
-                std::string separator = "||";
-                size_t pos;
-                std::string path_to_send;
-                while ((pos = data.find(separator)) != std::string::npos) {
-                    path_to_send = data.substr(0, pos);    // Taking the string section until the separator
-                    data.erase(0, pos + separator.length());    // Deleting the taken section of the string
-                    std::string path = path_to_send;
-                    while (path.find(':') < path.size())    // Resetting the original path format of the file or directory
-                        path.replace(path.find(':'), 1, ".");
-                    path = std::string(path_to_watch + "/").append(path);   // Restoring the 'relative' path of the file or directory
-                    boost::property_tree::ptree pt;
-                    if (!read_file(path, path_to_send, pt))
-                        log_and_close("Error while opening the file: " + path_to_send + " It won't be sent.");
-                    // Writing message
-                    Message write_msg;
-                    if (!write_msg.encode_message(2, pt)) {
-                        log_and_close("Error while encoding message, closing session. ");
-                        break;
-                    }
-                    enqueue_msg(write_msg);
+    if (!msg.decode_message()) log_and_close("Error while decoding server message, closing session. ");
+    int status = msg.get_header();
+    auto data = msg.get_str_data();
+    if (data.empty() || status == 999)
+        log_and_close("Error while communicating with server, closing session. ");
+    switch (status) {
+        case status_type::in_need : {
+            try {
+                ack_tracker["synch"]->cancel();    // Canceling the timer related to the "synch" ack
+            } catch (const boost::system::system_error &err) {
+                std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+            };
+            ack_tracker.erase("synch");    // Erasing the corresponding element from the ack map
+            std::string separator = "||";
+            size_t pos;
+            std::string path_to_send;
+            while ((pos = data.find(separator)) != std::string::npos) {
+                path_to_send = data.substr(0, pos);    // Taking the string section until the separator
+                data.erase(0, pos + separator.length());    // Deleting the taken section of the string
+                std::string path = path_to_send;
+                while (path.find(':') < path.size())    // Resetting the original path format of the file or directory
+                    path.replace(path.find(':'), 1, ".");
+                path = std::string(path_to_watch + "/").append(path);   // Restoring the 'relative' path of the file or directory
+                boost::property_tree::ptree pt;
+                if (!read_file(path, path_to_send, pt))
+                    log_and_close("Error while opening the file: " + path_to_send + " It won't be sent.");
+                // Writing message
+                Message write_msg;
+                if (!write_msg.encode_message(2, pt)) {
+                    log_and_close("Error while encoding message, closing session. ");
+                    break;
                 }
-                break;
+                enqueue_msg(write_msg);
             }
-            case status_type::no_need : {
-                try {
-                    ack_tracker["synch"]->cancel();    // Canceling the timer related to the "synch" ack
-                } catch (const boost::system::system_error &err) {
-                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
-                };
-                ack_tracker.erase("synch");    // Erasing the corresponding element from the ack map
-                break;
-            }
-            case status_type::unauthorized : {
-                std::cerr << "Unauthorized. ";
-                try {
-                    ack_tracker["login"]->cancel();    // Canceling the timer related to the "login" ack
-                } catch (const boost::system::system_error &err) {
-                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
-                };
-                ack_tracker.erase("login");    // Erasing the corresponding element from the ack map
-                close();    // If the login process failed, then close the current session
-                break;
-            }
-            case status_type::service_unavailable : {
-                auto wait = boost::chrono::seconds(delay);
-                std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
-                boost::this_thread::sleep_for(delay);
-                if (data == "login" || data == "Communication error") {    // If the server failed during login or any other process except from synchronization
-                    Message login_message;
-                    if (!login_message.put_credentials(cred.username, cred.password))  // then send the credentials again to the server and retry the login
-                        log_and_close("Error while communicating with server, closing session. ");
-                    enqueue_msg(login_message);
-                } else {
-                    if (!handle_sync()) log_and_close("Error while communicating with server, closing session. ");     // Else retry the synchronization procedure
-                }
-                if (wait.count() >= 20) {
-                    log_and_close("Server unavailable. ");
-                } else {
-                    delay *= 2;    // If the wait is not over the limit and there is an error, then double the delay and restart the loop
-                }
-                break;
-            }
-            case status_type::wrong_action : {
-                log_and_close("Wrong action. ");    // If a wrong action is recognized by the server and sent back, then close the current session
-                break;
-            }
-            case status_type::authorized : {
-                std::cout << "Authorized." << std::endl;
-                try {
-                    ack_tracker["login"]->cancel();    // Canceling the timer related to the "login" ack
-                } catch (const boost::system::system_error &err) {
-                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
-                };
-                ack_tracker.erase("login");    // Erasing the corresponding element from the ack map
-                do_start_directory_watcher();   // Starting the directory watcher
-                if (!handle_sync()) log_and_close("Error while communicating with server, closing session. ");  // Starting the synchronization procedure
-                break;
-            }
-            default : {
-                std::cout << "Operation completed." << std::endl;
-                try {
-                    //std::cout << data.substr(0, data.rfind(' ')) << std::endl;
-                    ack_tracker[data]->cancel();    // Canceling the timer related to the "sent data" ack
-                } catch (const boost::system::system_error &err) {
-                    std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
-                };
-                ack_tracker.erase(data.substr(0, data.rfind(' ')));    // Erasing the corresponding element from the ack map
-            }
+            break;
         }
-    } catch (const std::ios_base::failure &err) {
-        log_and_close("Error while synchronizing with server, closing session. ");
+        case status_type::no_need : {
+            try {
+                ack_tracker["synch"]->cancel();    // Canceling the timer related to the "synch" ack
+            } catch (const boost::system::system_error &err) {
+                std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+            };
+            ack_tracker.erase("synch");    // Erasing the corresponding element from the ack map
+            break;
+        }
+        case status_type::unauthorized : {
+            std::cerr << "Unauthorized. ";
+            try {
+                ack_tracker["login"]->cancel();    // Canceling the timer related to the "login" ack
+            } catch (const boost::system::system_error &err) {
+                std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+            };
+            ack_tracker.erase("login");    // Erasing the corresponding element from the ack map
+            close();    // If the login process failed, then close the current session
+            break;
+        }
+        case status_type::service_unavailable : {
+            auto wait = boost::chrono::seconds(delay);
+            std::cout << "Server unavailable, retrying in " << wait.count() << " sec" << std::endl;
+            boost::this_thread::sleep_for(delay);
+            if (data == "login" || data == "Communication error") {    // If the server failed during login or any other process except from synchronization
+                Message login_message;
+                if (!login_message.put_credentials(cred.username, cred.password))  // then send the credentials again to the server and retry the login
+                    log_and_close("Error while communicating with server, closing session. ");
+                enqueue_msg(login_message);
+            } else {
+                if (!handle_sync()) log_and_close("Error while communicating with server, closing session. ");     // Else retry the synchronization procedure
+            }
+            if (wait.count() >= 20) {
+                log_and_close("Server unavailable. ");
+            } else {
+                delay *= 2;    // If the wait is not over the limit and there is an error, then double the delay and restart the loop
+            }
+            break;
+        }
+        case status_type::wrong_action : {
+            log_and_close("Wrong action. ");    // If a wrong action is recognized by the server and sent back, then close the current session
+            break;
+        }
+        case status_type::authorized : {
+            std::cout << "Authorized." << std::endl;
+            try {
+                ack_tracker["login"]->cancel();    // Canceling the timer related to the "login" ack
+            } catch (const boost::system::system_error &err) {
+                std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+            };
+            ack_tracker.erase("login");    // Erasing the corresponding element from the ack map
+            do_start_directory_watcher();   // Starting the directory watcher
+            if (!handle_sync()) log_and_close("Error while communicating with server, closing session. ");  // Starting the synchronization procedure
+            break;
+        }
+        default : {
+            std::cout << "Operation completed." << std::endl;
+            try {
+                //std::cout << data.substr(0, data.rfind(' ')) << std::endl;
+                ack_tracker[data]->cancel();    // Canceling the timer related to the "sent data" ack
+            } catch (const boost::system::system_error &err) {
+                std::cerr << "An error occurred during the timer cancelling process, shutting down in less than 10 minutes." << std::endl;
+            };
+            ack_tracker.erase(data);    // Erasing the corresponding element from the ack map
+        }
     }
 }
 
@@ -481,7 +483,7 @@ int Client::read_file(const std::string& path, const std::string& path_to_send, 
             std::string encodedData = base64_encode(&buffer_vec[0], buffer_vec.size());
             pt.add("path", path_to_send);
             pt.add("hash", dw_ptr->getNode(path).hash);        // Retrieving the hash from the Node_Info struct of the directory watcher
-            pt.add("isFile", dw_ptr->getNode(path).isFile ? 1 : 0);    // Retrieving the hash from the Node_Info struct of the directory watcher
+            pt.add("isFile", dw_ptr->getNode(path).isFile ? 1 : 0);    // Retrieving the data type from the Node_Info struct of the directory watcher
             pt.add("content", encodedData);
             res = 1;
         }

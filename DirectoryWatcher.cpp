@@ -66,12 +66,11 @@ std::string DirectoryWatcher::make_hash(boost::filesystem::directory_entry& elem
     if (!boost::filesystem::is_directory(element) && node_size(element) != 0) {
         std::ifstream file;
         file.open(element.path().string(), std::ios::in|std::ios::binary);  // Opening the file that has to be hashed
-        file.seekg(0, std::ios::end);  // Finding the file length using seekg
-        file.seekg(0, std::ios::beg);
+        if (!file) return std::string("");
         std::string buffer;
         std::string str;
         while (std::getline(file, str)) {
-            if (!str.empty()) buffer.append(str);   // Reading from the file into a buffer vector
+            if (!str.empty()) buffer.append(str);   // Reading from the file into a buffer
         }
         if (!MD5_Update(&md5, buffer.data(), buffer.length())) return std::string("");
     } else {

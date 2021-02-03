@@ -97,7 +97,13 @@ class Client {
 public:
 
     /// Starts the connection request with the server
-    Client(boost::asio::io_context& io_context, tcp::resolver::results_type endpoints, std::string path_to_watch, std::shared_ptr<DirectoryWatcher> &dw, std::shared_ptr<bool> &stop, std::shared_ptr<bool> &running, std::shared_ptr<bool> &watching);
+    Client(boost::asio::io_context& io_context,
+           tcp::resolver::results_type endpoints,
+           std::string path_to_watch,
+           std::shared_ptr<DirectoryWatcher> &dw,
+           std::shared_ptr<bool> &stop,
+           std::shared_ptr<bool> &running,
+           std::shared_ptr<bool> &watching);
 
     ~Client();
 };
